@@ -1,0 +1,16 @@
+# Rojo 生成ファイル
+*.rbxlx
+*.rbxl
+
+# IDE
+.vscode/
+.idea/
+
+# ログ
+*.log
+
+# Netlify 用コピー（ルートの game.html / js/ が正本）
+deploy/
+
+# ローカル Pages プレビュー
+_site/
