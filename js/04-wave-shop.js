@@ -1,10 +1,10 @@
 // ===== WAVE SHOP (definitions, getters, UI) =====
 let upgradePoints = 0;
 let _lastScoreThreshold = 0;
-let currentWaveUpgrades = []; // 今ウェーブで表示する3枠
+let currentWaveUpgrades = [];
 let rerollsLeft = 2;
 let shieldRechargeTimer = 0;
-let shopPurchasedIds = new Set(); // 今回のショップで購入済みのID
+let shopPurchasedIds = new Set();
 
 const upgradeLevels = {
   // パッシブ
@@ -194,14 +194,34 @@ const UPGRADES = [
 ];
 
 // ----- wave shop stat getters -----
-function getShootRate()       { return [12,10,8,6,5][upgradeLevels.firerate]; }
-function getMoveSpeedMult()   { return [1.0,1.2,1.4,1.6][upgradeLevels.movespeed]; }
-function getGaugeFillRate()   { return 0.012 * [1.0,1.4,2.0,2.8][upgradeLevels.gauge] * getPermGaugeBoostMult() * getPermCapacitorMult(); }
+function getShootRate() {
+  if (hasForbidden('fb_overdrive')) return 3;
+  const base = [12,10,8,6,5][upgradeLevels.firerate];
+  return Math.max(3, base + getCharShootRateOffset());
+}
+function getMoveSpeedMult() {
+  return [1.0,1.2,1.4,1.6][upgradeLevels.movespeed] * getCharMoveSpeedMult();
+}
+function getGaugeFillRate() {
+  return 0.012 * [1.0,1.4,2.0,2.8][upgradeLevels.gauge] * getPermGaugeBoostMult() * getPermCapacitorMult() * getCharGaugeMult();
+}
 function getInvincibleFrames(){ return [120,160,200,240][upgradeLevels.invincible] + getPermInvBoostFrames(); }
-function getScoreMult()       { return [1.0,1.3,1.6,2.0][upgradeLevels.scoreBonus] * getPermScoreMultFactor() * (1 + getPermScoreBonusPct()); }
+function getScoreMult() {
+  let mult = [1.0,1.3,1.6,2.0][upgradeLevels.scoreBonus] * getPermScoreMultFactor() * (1 + getPermScoreBonusPct()) * getCharScoreMult();
+  if (hasForbidden('fb_domination')) mult *= 1.6;
+  return mult;
+}
 function getBulletSpeedMult() { return [1.0,1.4,1.8,2.3][upgradeLevels.bulletSpeed] * getPermBulletSpdMult(); }
-function getPlayerDamage()    { return [1,2,3,4][upgradeLevels.damage] + permLv('baseDamage'); }
+function getPlayerDamage() {
+  let dmg = [1,2,3,4][upgradeLevels.damage] + permLv('baseDamage') + getCharDamageBonus();
+  if (hasForbidden('fb_annihilation')) dmg += 4;
+  return dmg;
+}
 function getHomingStrength()  {
+  if (hasForbidden('fb_apocalypse')) return Math.max(0.8, getHomingStrengthBase());
+  return getHomingStrengthBase();
+}
+function getHomingStrengthBase() {
   const shop = [0,0.12,0.25,0.45][upgradeLevels.homing];
   const perm = [0,0.08,0.14,0.20,0.28][permLv('permHoming')];
   return Math.min(0.95, shop + perm);
@@ -212,7 +232,7 @@ function getMagnetRadius()    { return [0,100,180,280][upgradeLevels.magnet] + g
 function getPtBonus()         { return [0,1,2,3][upgradeLevels.ptBonus]; }
 function getBulletSizeMult()  { return [1.0,1.25,1.5,1.8][upgradeLevels.bulletSize] * (1 + getPermBulletSizeBonus()); }
 function getGaugeMax()        { return [100,85,70,55][upgradeLevels.gaugeCap]; }
-function getCriticalChance()  { return Math.min(0.95, [0,0.10,0.20,0.35][upgradeLevels.criticalHit] + getPermCritBonus()); }
+function getCriticalChance()  { return Math.min(0.95, [0,0.10,0.20,0.35][upgradeLevels.criticalHit] + getPermCritBonus() + getCharCritBonus()); }
 function getHealKillChance() {
   return getPermHealKillChance() + [0, 0.005, 0.01, 0.015, 0.02][permLv('permFortify')];
 }
@@ -226,12 +246,13 @@ function getShopDiscount()    { return getPermShopDiscount(); }
 function getRerollBonus()     { return getPermRerollBonus(); }
 
 function getEffectiveShieldRechargeInterval() {
+  const forbidden = hasForbidden('fb_void_aegis') ? 480 : 0;
+  const charBase = getCharShieldRegenInterval();
   const shop = getShieldRechargeInterval();
   const perm = getPermShieldRegenInterval();
-  if (shop <= 0 && perm <= 0) return 0;
-  if (shop <= 0) return perm;
-  if (perm <= 0) return shop;
-  return Math.min(shop, perm);
+  const vals = [forbidden, charBase, shop, perm].filter(v => v > 0);
+  if (vals.length === 0) return 0;
+  return Math.min(...vals);
 }
 function getShieldRechargeInterval() { return [0,1800,1200,600][upgradeLevels.shieldRecharge]; }
 function applyWaveStartBonuses() {
@@ -250,12 +271,23 @@ function getShopDropBonus()   { return [0,0.04,0.08,0.12][upgradeLevels.luckyDro
 function getKillHealChance()  {
   return Math.min(0.06, [0,0.01,0.02,0.03][upgradeLevels.killHeal] + getHealKillChance());
 }
-function getSlowMult()        { return [1,0.70,0.55,0.40][upgradeLevels.enemySlow]; }
+function getSlowMult() {
+  if (hasForbidden('fb_domination')) return Math.min(0.5, [1,0.70,0.55,0.40][upgradeLevels.enemySlow]);
+  return [1,0.70,0.55,0.40][upgradeLevels.enemySlow];
+}
 function getSlowDuration()    { return [0,60,90,120][upgradeLevels.enemySlow]; }
 function getComboCap()        { return [0,5,10,15][upgradeLevels.comboKill]; }
 function getComboBonusRate()  { return [0,0.08,0.10,0.12][upgradeLevels.comboKill] + getPermComboBonusAdd(); }
-function getEnemyBulletSpeedMult() { return [1,0.88,0.80,0.72][upgradeLevels.enemyWeak]; }
+function getEnemyBulletSpeedMult() {
+  if (hasForbidden('fb_domination')) {
+    return Math.min(0.55, [1,0.88,0.80,0.72][upgradeLevels.enemyWeak]);
+  }
+  return [1,0.88,0.80,0.72][upgradeLevels.enemyWeak];
+}
 function getExecuteMult(hpRatio) {
+  if (hasForbidden('fb_reaper') && hpRatio <= 0.6) {
+    return 4 * getPermExecuteMult(hpRatio);
+  }
   const lv = upgradeLevels.execute;
   let mult = 1;
   if (lv > 0 && hpRatio <= 0.35) mult = [1,1.6,2.2,3.0][lv];
@@ -296,6 +328,7 @@ function updateAbilityCapUI() {
   el.classList.toggle('full', n >= MAX_ABILITY_TYPES);
 }
 function getMultiDirectionLevel() {
+  if (hasForbidden('fb_apocalypse')) return 4;
   const fromBuild = Math.min(upgradeLevels.multishot + permLv('startMulti'), 4);
   // MULTIアイテム = 最低3方向。永続/ショップより弱い場合のみ底上げ
   const fromPup = player.powerups.multishot > 0 ? 2 : 0;
@@ -415,7 +448,7 @@ function doReroll() {
 }
 
 function awardPoints(isBoss) {
-  const earned = (isBoss ? 3 : 1) + getPermBonusPts() + getPtBonus();
+  const earned = (isBoss ? 3 : 1) + getPermBonusPts() + getPtBonus() + getCharWavePtBonus();
   upgradePoints += earned;
   return earned;
 }
@@ -435,12 +468,14 @@ function showUpgradeScreen(isBoss) {
     document.getElementById('levelDisplay').textContent = level;
     return;
   }
+  Achievements.onWaveClear(level, isBoss);
   state = 'upgrade';
   bullets.length = 0;
   enemyBullets.length = 0;
   rerollsLeft = 2 + getRerollBonus();
   shopPurchasedIds = new Set();
   pickWaveUpgrades();
+  rollForbiddenOfferForShop();
   const earned = awardPoints(isBoss);
   document.getElementById('upgWaveInfo').textContent = isBoss ? 'BOSS CLEAR !' : 'WAVE CLEAR !';
   const badge = document.getElementById('upgEarnedBadge');
@@ -507,6 +542,7 @@ function renderUpgradeGrid() {
     }
     grid.appendChild(card);
   });
+  renderForbiddenCard();
 }
 
 function buyUpgrade(id) {

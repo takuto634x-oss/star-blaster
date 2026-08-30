@@ -12,6 +12,8 @@ async function bootApp() {
 initProfiles();
 initDifficulty();
 Feedback.init();
+Achievements.init();
+Characters.init();
 PermHub.init();
 ScreenUI.init();
 Tutorial.init();

@@ -7,6 +7,7 @@ const ScreenUI = (() => {
     profile: 'profileOverlay',
     leaderboard: 'leaderboardOverlay',
     feedback: 'feedbackOverlay',
+    achievements: 'achievementsOverlay',
     difficulty: 'difficultyOverlay',
     tutorial: 'tutorialOverlay',
     hint: 'contextHint',
@@ -92,6 +93,7 @@ const ScreenUI = (() => {
     close('leaderboard');
     close('profile');
     close('feedback');
+    close('achievements');
     close('difficulty');
     close('tutorial');
     close('hint');

@@ -63,6 +63,7 @@ const Combat = (() => {
     if (player.invincible > 0) return 'iframe';
 
     if (player.powerups.shield > 0) {
+      Achievements.onDamageTaken();
       player.powerups.shield = 0;
       spawnParticles(player.x, player.y, 12, '#00ccff', 4, 22);
       grantIFrames(CFG.shieldIFrames);
@@ -73,6 +74,7 @@ const Combat = (() => {
 
     const armorMax = getArmorMaxPerWave();
     if (armorMax > 0 && permArmorUsed < armorMax) {
+      Achievements.onDamageTaken();
       permArmorUsed++;
       grantIFrames(Math.floor(getInvincibleFrames() * 0.6) + getPermBastionFrames());
       spawnParticles(player.x, player.y, 14, '#ffaa00', 5, 35);
@@ -82,6 +84,7 @@ const Combat = (() => {
     }
 
     lives--;
+    Achievements.onDamageTaken();
     grantIFrames(getInvincibleFrames());
     spawnExplosion(player.x, player.y, false, true);
     updateLivesUI();
@@ -460,6 +463,7 @@ function getBossType() {
 
 function spawnBoss() {
   bossActive = true;
+  Achievements.onBossSpawn();
   const btype = getBossType();
   const baseHp = { guardian:40, swarm:32, laser:28, titan:66, phantom:35 }[btype] + Math.round(level*8*2.2);
   const bossHp = Math.max(1, Math.round(baseHp * getPlayDifficulty().enemyHpMult));
