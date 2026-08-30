@@ -1,0 +1,44 @@
+{
+  "name": "the-limiter-ranked",
+  "tree": {
+    "$className": "DataModel",
+
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "RankedServer": {
+        "$path": "src/ranked/server"
+      }
+    },
+
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "Shared": {
+        "$path": "src/shared"
+      }
+    },
+
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "RankedClient": {
+          "$path": "src/ranked/client"
+        }
+      }
+    },
+
+    "StarterCharacterScripts": {
+      "$className": "StarterCharacterScripts",
+      "CharacterScripts": {
+        "$path": "src/character"
+      }
+    },
+
+    "Workspace": {
+      "$className": "Workspace",
+      "$properties": {
+        "FilteringEnabled": true
+      }
+    }
+  }
+}
