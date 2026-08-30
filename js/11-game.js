@@ -96,8 +96,8 @@ function update(doUI=true) {
       }
       e.hp -= hitDmg;
       e.hitFlash = 8;
-      if (upgradeLevels.enemySlow > 0) {
-        e.slowTimer = getSlowDuration();
+      if (upgradeLevels.enemySlow > 0 || hasForbidden('fb_domination')) {
+        e.slowTimer = Math.max(getSlowDuration(), hasForbidden('fb_domination') ? 90 : 0);
         e.slowMult = getSlowMult();
       }
       // 凍結付与
@@ -652,6 +652,7 @@ function startGame(fromDebug = false) {
   specialGauge=0; specialCooldownUntil=0; upgradePoints=0; _lastScoreThreshold=0; lastWasBossKill=false;
   if (!fromDebug) Object.keys(upgradeLevels).forEach(k => upgradeLevels[k]=0);
   currentWaveUpgrades = []; rerollsLeft = 2; shieldRechargeTimer = 0; shopPurchasedIds = new Set();
+  resetForbiddenForRun();
   player.x=W/2; player.y=H-90; player.invincible=0;
   player.powerups={multishot:0,shield:0,rapid:0,laser:0,freeze:0};
   player.shootCooldown=0;

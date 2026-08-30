@@ -5,12 +5,73 @@ let currentWaveUpgrades = []; // 今ウェーブで表示する3枠
 let rerollsLeft = 2;
 let shieldRechargeTimer = 0;
 let shopPurchasedIds = new Set(); // 今回のショップで購入済みのID
-let forbiddenOffer = null; // { upgId, bonusLevels } | null
-let forbiddenPurchased = false;
+let forbiddenOffer = null; // FORBIDDEN_CARDS の1件 | null
+let forbiddenOwned = {}; // id -> 0|1（各禁断カード MAX 1）
+let forbiddenRunClaimed = false; // このランで禁断を1枚でも購入したら以降出現しない
 
-const FORBIDDEN_BONUS_LEVELS = 2;
-const FORBIDDEN_COST_MULT = 2.2;
+const FORBIDDEN_CHANCE = 0.01;
 const FORBIDDEN_MIN_WAVE = 4;
+
+const FORBIDDEN_CARDS = [
+  {
+    id: 'fb_overdrive',
+    name: '過負荷連射',
+    symbol: '>>>',
+    desc: '弾幕を極限まで加速。通常強化の限界を超える',
+    effectLabel: '発射間隔 3F（最速）',
+    cost: 16,
+  },
+  {
+    id: 'fb_annihilation',
+    name: '終焉の火力',
+    symbol: '!!!',
+    desc: '1発に破壊的ダメージを宿す',
+    effectLabel: '攻撃力 +4',
+    cost: 18,
+  },
+  {
+    id: 'fb_apocalypse',
+    name: '天崩の弾雨',
+    symbol: '***',
+    desc: '全方位5方向弾＋強力追尾を即時獲得',
+    effectLabel: '5方向 + 追尾80%',
+    cost: 20,
+  },
+  {
+    id: 'fb_reaper',
+    name: '死神の裁き',
+    symbol: 'XX',
+    desc: '体力が半分以上残っていても処刑する',
+    effectLabel: 'HP60%以下で ×4',
+    cost: 17,
+  },
+  {
+    id: 'fb_void_aegis',
+    name: '虚空の盾',
+    symbol: '[O]',
+    desc: 'シールドを付与し、8秒ごとに自動再生',
+    effectLabel: 'シールド常時＋自動再生',
+    cost: 19,
+  },
+  {
+    id: 'fb_domination',
+    name: '支配の刻印',
+    symbol: '%%',
+    desc: '敵を弱体化し、スコア獲得を大幅に増幅',
+    effectLabel: '敵弱体 + スコア×1.6',
+    cost: 15,
+  },
+];
+
+function hasForbidden(id) {
+  return (forbiddenOwned[id] || 0) >= 1;
+}
+
+function resetForbiddenForRun() {
+  forbiddenOwned = {};
+  forbiddenRunClaimed = false;
+  forbiddenOffer = null;
+}
 
 const upgradeLevels = {
   // パッシブ
@@ -200,14 +261,29 @@ const UPGRADES = [
 ];
 
 // ----- wave shop stat getters -----
-function getShootRate()       { return [12,10,8,6,5][upgradeLevels.firerate]; }
+function getShootRate() {
+  if (hasForbidden('fb_overdrive')) return 3;
+  return [12,10,8,6,5][upgradeLevels.firerate];
+}
 function getMoveSpeedMult()   { return [1.0,1.2,1.4,1.6][upgradeLevels.movespeed]; }
 function getGaugeFillRate()   { return 0.012 * [1.0,1.4,2.0,2.8][upgradeLevels.gauge] * getPermGaugeBoostMult() * getPermCapacitorMult(); }
 function getInvincibleFrames(){ return [120,160,200,240][upgradeLevels.invincible] + getPermInvBoostFrames(); }
-function getScoreMult()       { return [1.0,1.3,1.6,2.0][upgradeLevels.scoreBonus] * getPermScoreMultFactor() * (1 + getPermScoreBonusPct()); }
+function getScoreMult() {
+  let mult = [1.0,1.3,1.6,2.0][upgradeLevels.scoreBonus] * getPermScoreMultFactor() * (1 + getPermScoreBonusPct());
+  if (hasForbidden('fb_domination')) mult *= 1.6;
+  return mult;
+}
 function getBulletSpeedMult() { return [1.0,1.4,1.8,2.3][upgradeLevels.bulletSpeed] * getPermBulletSpdMult(); }
-function getPlayerDamage()    { return [1,2,3,4][upgradeLevels.damage] + permLv('baseDamage'); }
+function getPlayerDamage() {
+  let dmg = [1,2,3,4][upgradeLevels.damage] + permLv('baseDamage');
+  if (hasForbidden('fb_annihilation')) dmg += 4;
+  return dmg;
+}
 function getHomingStrength()  {
+  if (hasForbidden('fb_apocalypse')) return Math.max(0.8, getHomingStrengthBase());
+  return getHomingStrengthBase();
+}
+function getHomingStrengthBase() {
   const shop = [0,0.12,0.25,0.45][upgradeLevels.homing];
   const perm = [0,0.08,0.14,0.20,0.28][permLv('permHoming')];
   return Math.min(0.95, shop + perm);
@@ -232,12 +308,12 @@ function getShopDiscount()    { return getPermShopDiscount(); }
 function getRerollBonus()     { return getPermRerollBonus(); }
 
 function getEffectiveShieldRechargeInterval() {
+  const forbidden = hasForbidden('fb_void_aegis') ? 480 : 0;
   const shop = getShieldRechargeInterval();
   const perm = getPermShieldRegenInterval();
-  if (shop <= 0 && perm <= 0) return 0;
-  if (shop <= 0) return perm;
-  if (perm <= 0) return shop;
-  return Math.min(shop, perm);
+  const vals = [forbidden, shop, perm].filter(v => v > 0);
+  if (vals.length === 0) return 0;
+  return Math.min(...vals);
 }
 function getShieldRechargeInterval() { return [0,1800,1200,600][upgradeLevels.shieldRecharge]; }
 function applyWaveStartBonuses() {
@@ -256,12 +332,23 @@ function getShopDropBonus()   { return [0,0.04,0.08,0.12][upgradeLevels.luckyDro
 function getKillHealChance()  {
   return Math.min(0.06, [0,0.01,0.02,0.03][upgradeLevels.killHeal] + getHealKillChance());
 }
-function getSlowMult()        { return [1,0.70,0.55,0.40][upgradeLevels.enemySlow]; }
+function getSlowMult() {
+  if (hasForbidden('fb_domination')) return Math.min(0.5, [1,0.70,0.55,0.40][upgradeLevels.enemySlow]);
+  return [1,0.70,0.55,0.40][upgradeLevels.enemySlow];
+}
 function getSlowDuration()    { return [0,60,90,120][upgradeLevels.enemySlow]; }
 function getComboCap()        { return [0,5,10,15][upgradeLevels.comboKill]; }
 function getComboBonusRate()  { return [0,0.08,0.10,0.12][upgradeLevels.comboKill] + getPermComboBonusAdd(); }
-function getEnemyBulletSpeedMult() { return [1,0.88,0.80,0.72][upgradeLevels.enemyWeak]; }
+function getEnemyBulletSpeedMult() {
+  if (hasForbidden('fb_domination')) {
+    return Math.min(0.55, [1,0.88,0.80,0.72][upgradeLevels.enemyWeak]);
+  }
+  return [1,0.88,0.80,0.72][upgradeLevels.enemyWeak];
+}
 function getExecuteMult(hpRatio) {
+  if (hasForbidden('fb_reaper') && hpRatio <= 0.6) {
+    return 4 * getPermExecuteMult(hpRatio);
+  }
   const lv = upgradeLevels.execute;
   let mult = 1;
   if (lv > 0 && hpRatio <= 0.35) mult = [1,1.6,2.2,3.0][lv];
@@ -302,6 +389,7 @@ function updateAbilityCapUI() {
   el.classList.toggle('full', n >= MAX_ABILITY_TYPES);
 }
 function getMultiDirectionLevel() {
+  if (hasForbidden('fb_apocalypse')) return 4;
   const fromBuild = Math.min(upgradeLevels.multishot + permLv('startMulti'), 4);
   // MULTIアイテム = 最低3方向。永続/ショップより弱い場合のみ底上げ
   const fromPup = player.powerups.multishot > 0 ? 2 : 0;
@@ -408,42 +496,28 @@ function pickWaveUpgrades() {
   }).slice(0, 4);
 }
 
-function pickForbiddenOffer(isBoss = false, isReroll = false) {
+function pickForbiddenOffer() {
   forbiddenOffer = null;
+  if (forbiddenRunClaimed) return;
   if (level < FORBIDDEN_MIN_WAVE) return;
-  const chance = isReroll
-    ? (isBoss ? 0.28 : 0.14)
-    : (isBoss ? 0.45 : 0.22);
-  if (Math.random() >= chance) return;
+  if (Math.random() >= FORBIDDEN_CHANCE) return;
 
-  const pool = UPGRADES.filter(u => {
-    if (upgradeLevels[u.id] >= u.maxLevel) return false;
-    if (u.tag === 'ability' && upgradeLevels[u.id] === 0 && isAbilityAtCap()) return false;
-    return true;
-  });
+  const pool = FORBIDDEN_CARDS.filter(c => !hasForbidden(c.id));
   if (pool.length === 0) return;
-
-  const weighted = [];
-  pool.forEach(u => {
-    const w = u.tag === 'ability' ? 2 : 1;
-    for (let i = 0; i < w; i++) weighted.push(u);
-  });
-  const pick = weighted[Math.floor(Math.random() * weighted.length)];
-  forbiddenOffer = { upgId: pick.id, bonusLevels: FORBIDDEN_BONUS_LEVELS };
+  forbiddenOffer = pool[Math.floor(Math.random() * pool.length)];
 }
 
-function getForbiddenCost(upg) {
-  const lv = upgradeLevels[upg.id];
-  let total = 0;
-  for (let i = 0; i < FORBIDDEN_BONUS_LEVELS && lv + i < upg.maxLevel; i++) {
-    total += getUpgradeCost(upg, lv + i);
+function getForbiddenCost(card) {
+  const mult = getPlayDifficulty().shopCostMult || 1;
+  return Math.ceil(card.cost * mult);
+}
+
+function applyForbiddenImmediate(card) {
+  if (card.id === 'fb_void_aegis') {
+    player.powerups.shield = 1;
+    const iv = getEffectiveShieldRechargeInterval();
+    if (iv > 0) shieldRechargeTimer = iv;
   }
-  return Math.ceil(total * FORBIDDEN_COST_MULT) + 2;
-}
-
-function getForbiddenGainLevels(upg) {
-  const lv = upgradeLevels[upg.id];
-  return Math.min(FORBIDDEN_BONUS_LEVELS, upg.maxLevel - lv);
 }
 
 function doReroll() {
@@ -451,10 +525,8 @@ function doReroll() {
   upgradePoints--;
   rerollsLeft--;
   shopPurchasedIds = new Set();
-  forbiddenPurchased = false;
   document.getElementById('upgradePointsDisplay').textContent = upgradePoints;
   pickWaveUpgrades(); // 再選出
-  pickForbiddenOffer(false, true);
   renderUpgradeGrid();
   document.getElementById('rerollsLeft').textContent = `残り${rerollsLeft}回`;
   document.getElementById('rerollBtn').disabled = rerollsLeft <= 0 || upgradePoints < 1;
@@ -487,9 +559,11 @@ function showUpgradeScreen(isBoss) {
   enemyBullets.length = 0;
   rerollsLeft = 2 + getRerollBonus();
   shopPurchasedIds = new Set();
-  forbiddenPurchased = false;
   pickWaveUpgrades();
-  pickForbiddenOffer(isBoss);
+  if (!forbiddenRunClaimed) {
+    forbiddenOffer = null;
+    pickForbiddenOffer();
+  }
   const earned = awardPoints(isBoss);
   document.getElementById('upgWaveInfo').textContent = isBoss ? 'BOSS CLEAR !' : 'WAVE CLEAR !';
   const badge = document.getElementById('upgEarnedBadge');
@@ -564,47 +638,25 @@ function renderForbiddenCard() {
   if (!slot) return;
   slot.innerHTML = '';
   slot.classList.add('hidden');
-  if (!forbiddenOffer || forbiddenPurchased) return;
+  if (!forbiddenOffer || forbiddenRunClaimed) return;
 
-  const upg = UPGRADES.find(u => u.id === forbiddenOffer.upgId);
-  if (!upg) return;
-  const lv = upgradeLevels[upg.id];
-  if (lv >= upg.maxLevel) return;
-
-  const gain = getForbiddenGainLevels(upg);
-  if (gain <= 0) return;
-
-  const cost = getForbiddenCost(upg);
-  const boughtThisShop = shopPurchasedIds.has(upg.id);
-  const abilityBlocked = upg.tag === 'ability' && lv === 0 && isAbilityAtCap();
+  const card = forbiddenOffer;
+  const cost = getForbiddenCost(card);
   const canAfford = upgradePoints >= cost;
-  const canBuy = !boughtThisShop && !abilityBlocked && canAfford && canBuyAbility(upg.id);
-
-  const pi = PERM_INTERACT[upg.id];
-  const currVal = pi ? pi.getEffVal(lv) : upg.vals[lv];
-  const nextLv = Math.min(upg.maxLevel, lv + gain);
-  const nextVal = pi ? pi.getEffVal(nextLv) : upg.vals[nextLv];
-  const valStr = `${currVal} → ${nextVal}（+${gain}）`;
-
-  const pips = Array.from({ length: upg.maxLevel }, (_, i) =>
-    `<div class="upg-pip${i < lv ? ' on' : ''}"></div>`
-  ).join('');
-
-  const costLabel = boughtThisShop ? '通常枠で購入済' : abilityBlocked ? '特殊能力上限' : `${cost} PT`;
-  const btnLabel = boughtThisShop ? '購入不可' : abilityBlocked ? '上限' : `禁断を購入 (${cost}PT)`;
+  const canBuy = canAfford;
 
   slot.classList.remove('hidden');
   slot.innerHTML = `
-    <div class="upg-forbidden-label">⚠ 禁断の1枚 ⚠</div>
+    <div class="upg-forbidden-label">⚠ 禁断の1枚 ⚠ <span class="upg-forbidden-note">出現率1% · ラン中1回限り</span></div>
     <div class="upg-card forbidden${canBuy ? '' : ' locked'}">
-      <div class="upg-tag forbidden">禁断 · ${upg.tag === 'ability' ? '特殊能力' : 'パッシブ'}</div>
-      <div class="upg-symbol">${upg.symbol}</div>
-      <div class="upg-name">${upg.name}</div>
-      <div class="upg-desc">一度に${gain}段階強化 · ${upg.desc}</div>
-      <div class="upg-curr-val">${valStr}</div>
-      <div class="upg-pips">${pips}</div>
-      <div class="upg-cost">${costLabel}</div>
-      <button class="upg-buy forbidden-buy" ${canBuy ? '' : 'disabled'} data-forbidden="1">${btnLabel}</button>
+      <div class="upg-tag forbidden">禁断 · MAX 1</div>
+      <div class="upg-symbol">${card.symbol}</div>
+      <div class="upg-name">${card.name}</div>
+      <div class="upg-desc">${card.desc}</div>
+      <div class="upg-curr-val">${card.effectLabel}</div>
+      <div class="upg-pips"><div class="upg-pip on gold"></div></div>
+      <div class="upg-cost">${cost} PT</div>
+      <button class="upg-buy forbidden-buy" ${canBuy ? '' : 'disabled'} data-forbidden="1">禁断を購入 (${cost}PT)</button>
     </div>`;
 
   if (canBuy) {
@@ -613,26 +665,16 @@ function renderForbiddenCard() {
 }
 
 function buyForbiddenUpgrade() {
-  if (!forbiddenOffer || forbiddenPurchased) return;
-  const upg = UPGRADES.find(u => u.id === forbiddenOffer.upgId);
-  if (!upg) return;
-  const lv = upgradeLevels[upg.id];
-  if (lv >= upg.maxLevel) return;
-  if (!canBuyAbility(upg.id) || shopPurchasedIds.has(upg.id)) return;
-
-  const gain = getForbiddenGainLevels(upg);
-  const cost = getForbiddenCost(upg);
-  if (upgradePoints < cost || gain <= 0) return;
+  if (!forbiddenOffer || forbiddenRunClaimed) return;
+  const card = forbiddenOffer;
+  const cost = getForbiddenCost(card);
+  if (upgradePoints < cost || hasForbidden(card.id)) return;
 
   upgradePoints -= cost;
-  upgradeLevels[upg.id] = Math.min(upg.maxLevel, lv + gain);
-  shopPurchasedIds.add(upg.id);
-  forbiddenPurchased = true;
+  forbiddenOwned[card.id] = 1;
+  forbiddenRunClaimed = true;
   forbiddenOffer = null;
-
-  if (upg.id === 'shieldRecharge' && shieldRechargeTimer === 0) {
-    shieldRechargeTimer = getEffectiveShieldRechargeInterval();
-  }
+  applyForbiddenImmediate(card);
 
   document.getElementById('upgradePointsDisplay').textContent = upgradePoints;
   document.getElementById('rerollBtn').disabled = rerollsLeft <= 0 || upgradePoints < 1;
