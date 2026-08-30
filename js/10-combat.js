@@ -59,6 +59,7 @@ const Combat = (() => {
   }
 
   function applyDamage() {
+    if (debugInvincible) return 'iframe';
     if (player.invincible > 0) return 'iframe';
 
     if (player.powerups.shield > 0) {
@@ -380,16 +381,16 @@ function spawnWave() {
     if (tk==='stealth') { extra.ghostTimer  = 60+Math.random()*60;  extra.ghost=false; }
     if (tk==='bomber')  { extra.bombTimer   = 80+Math.random()*80;  }
     if (tk==='charger') { extra.charging=false; extra.chargeVy=0; }
-    const scaledHp = Math.max(1, Math.round((t.hp + hpBonus) * getDifficulty().enemyHpMult));
-    const spd = (t.speed + level * 0.04) * getDifficulty().enemySpeedMult;
+    const scaledHp = Math.max(1, Math.round((t.hp + hpBonus) * getPlayDifficulty().enemyHpMult));
+    const spd = (t.speed + level * 0.04) * getPlayDifficulty().enemySpeedMult;
     enemies.push(makeEnemyFromType(tk, sx+c*xGap, -40-r*60, (Math.random()-0.5)*0.5, spd, scaledHp, extra));
   }
 }
 
 function spawnMinis(x, y) {
-  const miniHp = Math.max(1, Math.round(getDifficulty().enemyHpMult));
+  const miniHp = Math.max(1, Math.round(getPlayDifficulty().enemyHpMult));
   [-1,1].forEach(dir => {
-    enemies.push(makeEnemyFromType('mini', x+dir*14, y, dir*2.0, 1.6 * getDifficulty().enemySpeedMult, miniHp));
+    enemies.push(makeEnemyFromType('mini', x+dir*14, y, dir*2.0, 1.6 * getPlayDifficulty().enemySpeedMult, miniHp));
   });
 }
 
@@ -407,7 +408,7 @@ function spawnBoss() {
   bossActive = true;
   const btype = getBossType();
   const baseHp = { guardian:40, swarm:32, laser:28, titan:66, phantom:35 }[btype] + Math.round(level*8*2.2);
-  const bossHp = Math.max(1, Math.round(baseHp * getDifficulty().enemyHpMult));
+  const bossHp = Math.max(1, Math.round(baseHp * getPlayDifficulty().enemyHpMult));
   const sz = btype==='titan' ? {w:110,h:85} : btype==='phantom' ? {w:88,h:88} : {w:90,h:70};
   bossRef = {
     x:W/2, y:-80, vx:1.1, vy:0.6,
@@ -855,7 +856,7 @@ function activatePowerup(type) {
       spawnParticles(W/2, H/2, 30, '#ff9900', 8, 50);
       Sfx.play('bomb', true); break;
     case 'life':
-      if (lives < 4) { lives++; updateLivesUI(); }
+      if (lives < getMaxLives()) { lives++; updateLivesUI(); }
       spawnParticles(player.x, player.y, 12, '#ff44aa', 4, 30);
       Sfx.play('pickupLife', true); return;
   }

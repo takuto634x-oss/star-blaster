@@ -56,7 +56,7 @@ function pushEnemyBullet(b) {
 
 function makeEnemyFromType(tk, x, y, vx, vy, hp, extra = {}) {
   const t = ENEMY_TYPES[tk];
-  const diff = getDifficulty();
+  const diff = getPlayDifficulty();
   return {
     x, y, vx, vy,
     w: t.w, h: t.h, hp, maxHp: hp,

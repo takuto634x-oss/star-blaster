@@ -100,7 +100,7 @@ function updateUI() {
 function updateLivesUI() {
   const el = document.getElementById('livesDisplay');
   el.innerHTML = '';
-  const max = Math.max(lives,3);
+  const max = Math.max(lives, getMaxLives(), 3);
   for (let i=0;i<max;i++) {
     const d=document.createElement('div');
     d.className='life-icon'+(i>=lives?' empty':'');

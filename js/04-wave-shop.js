@@ -296,7 +296,7 @@ function applyWaveStartBonuses() {
   const bonus = getPermWaveGaugeBonus() + [0, 0.08, 0.15, 0.22, 0.30][permLv('permWaveBonus')];
   if (bonus > 0) addGauge(getGaugeMax() * bonus);
   const wh = getPermWaveHealChance();
-  if (wh > 0 && Math.random() < wh && lives < 4) {
+  if (wh > 0 && Math.random() < wh && lives < getMaxLives()) {
     lives++;
     updateLivesUI();
     spawnParticles(player.x, player.y, 10, '#ff66aa', 3, 22);
@@ -542,7 +542,9 @@ function awardPoints(isBoss) {
 }
 
 function getUpgradeCost(upg, lv) {
-  return Math.max(1, upg.costs[lv] - getShopDiscount());
+  const base = Math.max(1, upg.costs[lv] - getShopDiscount());
+  const mult = getPlayDifficulty().shopCostMult || 1;
+  return Math.ceil(base * mult);
 }
 
 function showUpgradeScreen(isBoss) {
@@ -666,6 +668,7 @@ function continueToNextWave() {
   const isBoss = level % 3 === 0;
   if (isBoss) spawnBoss(); else spawnWave();
   level++;
+  recordHardWaveProgress();
   showLevelText();
 }
 

@@ -45,10 +45,12 @@ function initTitleCodePanel() {
 
 const debugDraft = {
   charId: 'blaster',
+  difficultyId: 'normal',
   shop: {},
   perm: {},
   lives: 3,
   startLevel: 1,
+  invincible: false,
   fullGauge: false,
   powerups: { shield: false, multishot: false, rapid: false, laser: false },
 };
@@ -59,8 +61,12 @@ function showDebugBadge(on) {
 
 function syncDebugDraftFromGame() {
   debugDraft.charId = activeCharId;
+  debugDraft.difficultyId = (state === 'playing' || state === 'debug')
+    ? (playDifficultyId || difficultyId || 'normal')
+    : (difficultyId || 'normal');
   debugDraft.lives = lives || 3;
   debugDraft.startLevel = level || 1;
+  debugDraft.invincible = debugInvincible;
   UPGRADES.forEach(u => { debugDraft.shop[u.id] = upgradeLevels[u.id] || 0; });
   syncPermLevelsFromChar(debugDraft.charId);
   debugDraft.perm = {};
@@ -70,6 +76,7 @@ function syncDebugDraftFromGame() {
 function readDebugDraftFromUI() {
   debugDraft.lives = Math.max(1, Math.min(9, parseInt(document.getElementById('debugLives').value, 10) || 3));
   debugDraft.startLevel = Math.max(1, Math.min(50, parseInt(document.getElementById('debugStartLevel').value, 10) || 1));
+  debugDraft.invincible = document.getElementById('debugInvincible').checked;
   debugDraft.fullGauge = document.getElementById('debugFullGauge').checked;
   debugDraft.powerups.shield = document.getElementById('debugPupShield').checked;
   debugDraft.powerups.multishot = document.getElementById('debugPupMulti').checked;
@@ -80,11 +87,32 @@ function readDebugDraftFromUI() {
 function writeDebugDraftToUI() {
   document.getElementById('debugLives').value = debugDraft.lives;
   document.getElementById('debugStartLevel').value = debugDraft.startLevel;
+  document.getElementById('debugInvincible').checked = debugDraft.invincible;
   document.getElementById('debugFullGauge').checked = debugDraft.fullGauge;
   document.getElementById('debugPupShield').checked = debugDraft.powerups.shield;
   document.getElementById('debugPupMulti').checked = debugDraft.powerups.multishot;
   document.getElementById('debugPupRapid').checked = debugDraft.powerups.rapid;
   document.getElementById('debugPupLaser').checked = debugDraft.powerups.laser;
+}
+
+function renderDebugDiffBtns() {
+  const wrap = document.getElementById('debugDiffBtns');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  Object.keys(DIFFICULTIES).forEach(id => {
+    const d = DIFFICULTIES[id];
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'debug-char-btn' + (debugDraft.difficultyId === id ? ' active' : '');
+    btn.dataset.diff = id;
+    btn.textContent = d.label;
+    btn.title = d.desc;
+    btn.addEventListener('click', () => {
+      debugDraft.difficultyId = id;
+      renderDebugDiffBtns();
+    });
+    wrap.appendChild(btn);
+  });
 }
 
 function renderDebugCharBtns() {
@@ -162,6 +190,7 @@ function renderDebugPermGrid() {
 
 function renderDebugPanel() {
   renderDebugCharBtns();
+  renderDebugDiffBtns();
   writeDebugDraftToUI();
   renderDebugShopGrid();
   renderDebugPermGrid();
@@ -196,6 +225,10 @@ function closeDebugPanel() {
 
 function applyDebugSettings() {
   readDebugDraftFromUI();
+  difficultyId = debugDraft.difficultyId;
+  playDifficultyId = debugDraft.difficultyId;
+  applyPlayerHitRadius();
+  debugInvincible = debugDraft.invincible;
   activeCharId = debugDraft.charId;
   syncPermLevelsFromChar(activeCharId);
   getActivePermTree().forEach(u => {
@@ -236,8 +269,8 @@ function applyDebugLive() {
 
 function startDebugGame() {
   readDebugDraftFromUI();
+  difficultyId = debugDraft.difficultyId;
   debugMode = true;
-  document.getElementById('debugOverlay').classList.add('hidden');
   debugPauseReturn = false;
   startGame(true);
   showDebugBadge(true);

@@ -125,7 +125,7 @@ function update(doUI=true) {
         if (e.type==='splitter') spawnMinis(e.x, e.y);
         spawnExplosion(e.x,e.y,isBoss);
         spawnPowerup(e.x,e.y);
-        const pts = Math.round(e.score * getScoreMult() * getComboMult() * getPermSalvageMult() * getDifficulty().scoreMult);
+        const pts = Math.round(e.score * getScoreMult() * getComboMult() * getPermSalvageMult() * getPlayDifficulty().scoreMult);
         addScorePopup(e.x,e.y,pts);
         score += pts;
         document.getElementById('scoreDisplay').textContent = score.toLocaleString();
@@ -135,7 +135,7 @@ function update(doUI=true) {
         if (getPermKillSpeedFrames() > 0) permKillSpeedTimer = getPermKillSpeedFrames();
         applyChainKill(e.x, e.y, hitDmg, e);
         const hk = getKillHealChance();
-        if (hk > 0 && Math.random() < hk && lives < 4) {
+        if (hk > 0 && Math.random() < hk && lives < getMaxLives()) {
           lives++;
           updateLivesUI();
           spawnParticles(e.x, e.y, 8, '#ff44aa', 3, 20);
@@ -545,7 +545,7 @@ function update(doUI=true) {
   for (let i=enemies.length-1;i>=0;i--) {
     if (enemies[i].hp<=0) {
       spawnExplosion(enemies[i].x,enemies[i].y);
-      const bombPts = Math.round(enemies[i].score * getDifficulty().scoreMult);
+      const bombPts = Math.round(enemies[i].score * getPlayDifficulty().scoreMult);
       addScorePopup(enemies[i].x,enemies[i].y,bombPts);
       score+=bombPts;
       addGauge(getEnemyGaugeGain(enemies[i].gaugeGain));
@@ -637,13 +637,18 @@ function startGame(fromDebug = false) {
     return;
   }
   if (!fromDebug) debugMode = false;
+  if (!fromDebug) debugInvincible = false;
   ScreenUI.prepareForPlay();
   state='playing';
   playDifficultyId = difficultyId;
   score=0; highscore=highscoresByDiff[playDifficultyId] || 0; level=1; frameCount=0;
   comboCount=0; comboTimer=0; permKillSpeedTimer=0;
   orbitGuardCooldowns.fill(0);
-  lives = Math.max(1, 3 + permLv('extraLife') + getDifficulty().lifeBonus);
+  const diff = getPlayDifficulty();
+  lives = diff.fixedLives != null
+    ? diff.fixedLives
+    : Math.max(1, 3 + permLv('extraLife') + diff.lifeBonus);
+  applyPlayerHitRadius();
   specialGauge=0; specialCooldownUntil=0; upgradePoints=0; _lastScoreThreshold=0; lastWasBossKill=false;
   if (!fromDebug) Object.keys(upgradeLevels).forEach(k => upgradeLevels[k]=0);
   currentWaveUpgrades = []; rerollsLeft = 2; shieldRechargeTimer = 0; shopPurchasedIds = new Set();
@@ -694,6 +699,7 @@ function endGame() {
     document.getElementById('overlayHighscore').classList.add('hidden');
     document.getElementById('startBtn').textContent = 'スタート';
     debugMode = false;
+    debugInvincible = false;
     return;
   }
   if (score > highscore) {
@@ -701,7 +707,8 @@ function endGame() {
     highscoresByDiff[playDifficultyId] = score;
   }
   saveHighscore();
-  const earned = Math.max(1, Math.min(20, Math.round(Math.floor(score / 1500) * getDifficulty().ptMult)));
+  const earned = Math.max(1, Math.min(20, Math.round(Math.floor(score / 1500) * getPlayDifficulty().ptMult)));
+  recordHardWaveProgress();
   permPoints += earned;
   savePerm();
   setTimeout(() => showPermTree(earned), 600);

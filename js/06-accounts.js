@@ -13,11 +13,11 @@ const PROFILES_REGISTRY_KEY = 'starblaster_profiles_v1';
 const ACTIVE_PROFILE_KEY = 'starblaster_active_profile_v1';
 const HIGHSCORE_STORAGE_KEY = 'starblaster_highscore_v1';
 const HIGHSCORES_STORAGE_KEY = 'starblaster_highscores_v1';
-const DIFFICULTY_HS_IDS = ['easy', 'normal', 'hard'];
-let highscoresByDiff = { easy: 0, normal: 0, hard: 0 };
+const DIFFICULTY_HS_IDS = ['easy', 'normal', 'hard', 'extra'];
+let highscoresByDiff = { easy: 0, normal: 0, hard: 0, extra: 0 };
 
 function emptyHighscores() {
-  return { easy: 0, normal: 0, hard: 0 };
+  return { easy: 0, normal: 0, hard: 0, extra: 0 };
 }
 
 function normalizeHighscores(raw) {
@@ -40,7 +40,7 @@ function parseHighscoresJson(str) {
 }
 
 function highscoresMax(hss) {
-  return Math.max(hss.easy || 0, hss.normal || 0, hss.hard || 0);
+  return Math.max(hss.easy || 0, hss.normal || 0, hss.hard || 0, hss.extra || 0);
 }
 
 function highscoresFromCloudData(data) {
@@ -506,16 +506,46 @@ function saveHighscore() {
 
 // ===== DIFFICULTY =====
 const DIFFICULTY_KEY = 'starblaster_difficulty_v1';
+const EXTRA_UNLOCK_KEY = 'starblaster_extra_unlock_v1';
+const HARD_MAX_WAVE_KEY = 'starblaster_hard_max_wave_v1';
+const EXTRA_UNLOCK_WAVE = 25;
 const DIFFICULTIES = {
   easy:   { label: 'EASY',   desc: 'ライフ+1 · 敵が弱め · 獲得PTやや少なめ', enemyHpMult: 0.8,  enemyShootMult: 0.7,  enemySpeedMult: 0.9,  scoreMult: 0.85, ptMult: 0.85, lifeBonus: 1 },
   normal: { label: 'NORMAL', desc: '標準バランス', enemyHpMult: 1,    enemyShootMult: 1,    enemySpeedMult: 1,    scoreMult: 1,    ptMult: 1,    lifeBonus: 0 },
   hard:   { label: 'HARD',   desc: 'ライフ-1 · 敵が強め · 獲得PTボーナス', enemyHpMult: 1.35, enemyShootMult: 1.35, enemySpeedMult: 1.08, scoreMult: 1.2,  ptMult: 1.3,  lifeBonus: -1 },
+  extra:  {
+    label: 'EXTRA', desc: 'ライフ1固定 · 敵HP250% · 弾多め · ショップ高騰 · 当たり判定大 · スコア/PT2倍',
+    enemyHpMult: 2.5, enemyShootMult: 1.55, enemySpeedMult: 1, scoreMult: 2, ptMult: 2,
+    fixedLives: 1, maxLives: 1, shopCostMult: 1.5, playerHitMult: 1.45,
+  },
 };
 let difficultyId = 'normal';
 let difficultyReturnTo = 'title';
 let playDifficultyId = 'normal';
 
 function getDifficulty() { return DIFFICULTIES[difficultyId] || DIFFICULTIES.normal; }
+function getPlayDifficulty() { return DIFFICULTIES[playDifficultyId] || DIFFICULTIES.normal; }
+
+function isExtraUnlocked() {
+  return profileGet(EXTRA_UNLOCK_KEY) === '1';
+}
+
+function getMaxLives() {
+  const d = getPlayDifficulty();
+  if (d.maxLives != null) return d.maxLives;
+  return 4;
+}
+
+function applyPlayerHitRadius() {
+  Combat.CFG.playerR = 10 * (getPlayDifficulty().playerHitMult || 1);
+}
+
+function recordHardWaveProgress() {
+  if (playDifficultyId !== 'hard' || debugMode || !activeProfileId) return;
+  const prev = parseInt(profileGet(HARD_MAX_WAVE_KEY) || '0', 10) || 0;
+  if (level > prev) profileSet(HARD_MAX_WAVE_KEY, String(level));
+  if (level >= EXTRA_UNLOCK_WAVE) profileSet(EXTRA_UNLOCK_KEY, '1');
+}
 
 function loadDifficulty() {
   if (!activeProfileId) {
@@ -524,12 +554,21 @@ function loadDifficulty() {
     return;
   }
   const saved = profileGet(DIFFICULTY_KEY);
-  difficultyId = (saved && DIFFICULTIES[saved]) ? saved : 'normal';
+  difficultyId = (saved && DIFFICULTIES[saved] && (saved !== 'extra' || isExtraUnlocked())) ? saved : 'normal';
   updateDifficultyUI();
 }
 
 function setDifficulty(id) {
   if (!DIFFICULTIES[id] || !ScreenUI.isOpen('difficulty')) return;
+  const descEl = document.getElementById('difficultyDesc');
+  if (id === 'extra' && !isExtraUnlocked()) {
+    if (descEl) {
+      const best = parseInt(profileGet(HARD_MAX_WAVE_KEY) || '0', 10) || 0;
+      descEl.textContent = `🔒 解放条件: HARDでウェーブ${EXTRA_UNLOCK_WAVE}到達（現在のベスト: ${best}）`;
+    }
+    Sfx.play('ui', true);
+    return;
+  }
   difficultyId = id;
   updateDifficultyUI();
   Sfx.play('ui', true);
@@ -537,10 +576,24 @@ function setDifficulty(id) {
 
 function updateDifficultyUI() {
   document.querySelectorAll('.diff-option').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.diff === difficultyId);
+    const id = btn.dataset.diff;
+    const locked = id === 'extra' && !isExtraUnlocked();
+    btn.classList.toggle('active', id === difficultyId && !locked);
+    btn.classList.toggle('locked', locked);
   });
+  const extraDesc = document.querySelector('.diff-option[data-diff="extra"] .diff-option-desc');
+  if (extraDesc) {
+    extraDesc.textContent = isExtraUnlocked()
+      ? 'ライフ1固定 · 敵HP250% · 弾多め · ショップ高騰 · 当たり判定大'
+      : `🔒 HARD W${EXTRA_UNLOCK_WAVE}で解放 · ライフ1 · 敵HP250% · 高難度`;
+  }
   const descEl = document.getElementById('difficultyDesc');
   if (descEl) {
+    if (difficultyId === 'extra' && !isExtraUnlocked()) {
+      const best = parseInt(profileGet(HARD_MAX_WAVE_KEY) || '0', 10) || 0;
+      descEl.textContent = `🔒 解放条件: HARDでウェーブ${EXTRA_UNLOCK_WAVE}到達（現在のベスト: ${best}）`;
+      return;
+    }
     const hs = highscoresByDiff[difficultyId] || 0;
     const hsText = hs > 0 ? ` · 自己ベスト ${hs.toLocaleString()}` : '';
     descEl.textContent = getDifficulty().desc + hsText;
@@ -579,6 +632,7 @@ function closeDifficultySelect() {
 }
 
 function confirmDifficultyStart() {
+  if (difficultyId === 'extra' && !isExtraUnlocked()) return;
   if (activeProfileId) profileSet(DIFFICULTY_KEY, difficultyId);
   if (difficultyReturnTo === 'permTree') ScreenUI.onLeavePermTree(true);
   ScreenUI.close('difficulty');

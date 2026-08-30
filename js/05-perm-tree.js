@@ -798,7 +798,7 @@ function showPermTree(earnedPts = 0, hubMode = false) {
   document.getElementById('ptScore').textContent = score.toLocaleString();
   const runInfo = document.getElementById('ptRunInfo');
   if (runInfo && !hubMode) {
-    runInfo.innerHTML = `LEVEL <span id="ptLevel">${level}</span> 到達 &nbsp;—&nbsp; ${getDifficulty().label} &nbsp;—&nbsp; スコア <span id="ptScore">${score.toLocaleString()}</span>`;
+    runInfo.innerHTML = `LEVEL <span id="ptLevel">${level}</span> 到達 &nbsp;—&nbsp; ${getPlayDifficulty().label} &nbsp;—&nbsp; スコア <span id="ptScore">${score.toLocaleString()}</span>`;
   }
   document.getElementById('ptTotal').textContent = permPoints;
   document.getElementById('ptStartBtn').textContent = hubMode ? 'ゲームを始める ▶' : '新しいゲームを始める ▶';

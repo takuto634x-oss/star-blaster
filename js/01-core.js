@@ -29,6 +29,7 @@ let debugPauseReturn = false;
 let score = 0, highscore = 0, level = 1, lives = 3;
 let debugMode = false;
 let debugUnlocked = false; // リロードのたびにロック
+let debugInvincible = false;
 let frameCount = 0;
 let comboCount = 0, comboTimer = 0;
 const orbitGuardCooldowns = [0, 0, 0];
