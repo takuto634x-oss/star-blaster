@@ -1,4 +1,4 @@
-// ===== WAVE SHOP =====
+// ===== WAVE SHOP (definitions, getters, UI) =====
 let upgradePoints = 0;
 let _lastScoreThreshold = 0;
 let currentWaveUpgrades = []; // 今ウェーブで表示する3枠
@@ -225,55 +225,6 @@ function getArmorMaxPerWave() {
 function getShopDiscount()    { return getPermShopDiscount(); }
 function getRerollBonus()     { return getPermRerollBonus(); }
 
-// ----- permanent upgrade stat getters (permLv = 適用Lv) -----
-function getPermGaugeBoostMult() {
-  const lv = permLv('gaugeBoost');
-  if (activeCharId === 'volt') return [1.0, 1.8, 2.5, 3.5, 4.5][lv] || 1;
-  return [1.0, 1.5, 2.0, 2.8, 3.5][lv] || 1;
-}
-function getPermInvBoostFrames() { return [0, 30, 60, 90, 120][permLv('invBoost')]; }
-function getPermScoreMultFactor() { return [1.0, 1.2, 1.5, 2.0, 2.5][permLv('scoreMult')]; }
-function getPermScoreBonusPct() { return [0, 0.10, 0.20, 0.28, 0.35][permLv('permScoreBonus')]; }
-function getPermBulletSpdMult() { return [1.0, 1.2, 1.35, 1.5, 1.65][permLv('bulletSpd')]; }
-function getPermGaugeKillBonus() { return [0, 1, 2, 4, 6][permLv('gaugeKill')]; }
-function getPermMagnetBonus() { return [0, 60, 120, 180, 240][permLv('permMagnet')]; }
-function getPermCritBonus() { return [0, 0.08, 0.15, 0.25, 0.35][permLv('permCrit')]; }
-function getPermHealKillChance() { return [0, 0.005, 0.01, 0.02, 0.035][permLv('healKill')]; }
-function getPermShopDiscount() { return [0, 1, 2, 3, 3][permLv('shopDiscount')]; }
-function getPermRerollBonus() { return [0, 1, 2, 3, 3][permLv('rerollPlus')]; }
-function getPermItemDropBonus() { return [0, 0.03, 0.06, 0.09, 0.12][permLv('itemDrop')]; }
-function getPermBonusPts() { return permLv('bonusPts'); }
-function getPermSpecialCooldownMs() {
-  const lv = permLv('permSpecialCd');
-  if (lv <= 0) return SPECIAL_COOLDOWN_MS;
-  return [10000, 8500, 7000, 5500, 4000][lv];
-}
-function getPermOverchargeMult() { return [1, 1.15, 1.30, 1.45, 1.65][permLv('permOvercharge')]; }
-function getPermWaveGaugeBonus() { return [0, 0.12, 0.25, 0.40, 0.55][permLv('permWaveCharge')]; }
-function getPermShieldRegenInterval() {
-  const lv = permLv('permRegen');
-  if (lv <= 0) return 0;
-  return [0, 2400, 1800, 1200, 800][lv];
-}
-function getPermOrbitStartCount() { return [0, 1, 2, 3, 3][permLv('permOrbitStart')]; }
-function getPermBastionFrames() { return [0, 20, 40, 60, 90][permLv('permBastion')]; }
-function getPermExecuteMult(hpRatio) {
-  const lv = permLv('permExecute');
-  if (lv <= 0) return 1;
-  const threshold = [1, 0.40, 0.35, 0.30, 0.25][lv];
-  if (hpRatio > threshold) return 1;
-  return [1, 1.5, 2.0, 2.6, 3.2][lv];
-}
-function getPermChainTargets() { return [0, 1, 2, 3, 4][permLv('permChain')]; }
-function getPermPierceCount() { return [0, 1, 2, 3, 4][Math.min(permLv('permPierce'), 4)]; }
-function getPermBulletSizeBonus() { return [0, 0.15, 0.30, 0.45, 0.60][Math.min(permLv('permBulletSize'), 4)]; }
-function getPermBossDamageMult() { return 1 + [0, 0.15, 0.30, 0.50, 0.70][Math.min(permLv('permBossHunter'), 4)]; }
-function getPermComboBonusAdd() { return [0, 0.05, 0.10, 0.15, 0.20][Math.min(permLv('permComboMaster'), 4)]; }
-function getPermFreezePermChance() { return [0, 0.10, 0.20, 0.30][Math.min(permLv('permFreezePerm'), 4)]; }
-function getPermSalvageMult() { return 1 + [0, 0.08, 0.15, 0.22, 0.30][Math.min(permLv('permSalvage'), 4)]; }
-function getPermWaveHealChance() { return [0, 0.05, 0.10, 0.15, 0.20][Math.min(permLv('permWaveHeal'), 4)]; }
-function getPermCapacitorMult() { return 1 + [0, 0.10, 0.20, 0.30, 0.40][Math.min(permLv('permCapacitor'), 4)]; }
-function getPermKillSpeedFrames() { return [0, 30, 60, 90, 120][Math.min(permLv('permKillSpeed'), 4)]; }
 function getEffectiveShieldRechargeInterval() {
   const shop = getShieldRechargeInterval();
   const perm = getPermShieldRegenInterval();
@@ -283,15 +234,6 @@ function getEffectiveShieldRechargeInterval() {
   return Math.min(shop, perm);
 }
 function getShieldRechargeInterval() { return [0,1800,1200,600][upgradeLevels.shieldRecharge]; }
-function getStartGaugeRatio() {
-  return [0, 0.25, 0.5, 0.75, 1.0][Math.min(permLv('startGauge'), 4)];
-}
-function getBigBombCountBonus() { return [0, 6, 12, 18, 24][permLv('bigBomb')]; }
-function getBigBombDmgBonus() { return [0, 1, 3, 4, 6][permLv('bigBomb')]; }
-function applyStartGaugeFill() {
-  const ratio = getStartGaugeRatio();
-  if (ratio > 0) specialGauge = getGaugeMax() * ratio;
-}
 function applyWaveStartBonuses() {
   const bonus = getPermWaveGaugeBonus() + [0, 0.08, 0.15, 0.22, 0.30][permLv('permWaveBonus')];
   if (bonus > 0) addGauge(getGaugeMax() * bonus);
@@ -302,7 +244,6 @@ function applyWaveStartBonuses() {
     spawnParticles(player.x, player.y, 10, '#ff66aa', 3, 22);
   }
 }
-function getPermLuckyDropBonus() { return [0, 0.02, 0.04, 0.06, 0.08][permLv('permLucky')]; }
 function getFreezeOnHitChance(){ return Math.min(0.75, [0,0.15,0.30,0.50][upgradeLevels.freezeOnHit] + getPermFreezePermChance()); }
 function getFreezeOnHitDur()  { return [0,40,70,100][upgradeLevels.freezeOnHit]; }
 function getShopDropBonus()   { return [0,0.04,0.08,0.12][upgradeLevels.luckyDrop]; }
@@ -330,60 +271,6 @@ function getOrbitGuardOffsets(count) {
     { dx: 0, dy: 10 },
   ];
   return slots.slice(0, count);
-}
-
-// ----- combat helpers (orbit / special) -----
-function findNearestEnemy(x, y, maxRange = 9999) {
-  let nearest = null, best = maxRange * maxRange;
-  for (const e of enemies) {
-    if (e.type === 'stealth' && e.ghost) continue;
-    if (e.type === 'boss' && e.invEntry) continue;
-    const dx = e.x - x, dy = e.y - y;
-    const d2 = dx * dx + dy * dy;
-    if (d2 < best) { best = d2; nearest = e; }
-  }
-  return nearest;
-}
-function shootOrbitGuardBullet(gx, gy, target) {
-  if (bullets.length >= MAX_PLAYER_BULLETS) return;
-  const bSpd = 10 * getBulletSpeedMult();
-  const dmg = Math.max(1, Math.floor(getPlayerDamage() * 0.7));
-  let vx = 0, vy = -bSpd;
-  if (target) {
-    const dx = target.x - gx, dy = target.y - gy;
-    const len = Math.hypot(dx, dy) || 1;
-    vx = dx / len * bSpd;
-    vy = dy / len * bSpd;
-  }
-  bullets.push({
-    x: gx, y: gy - 8,
-    vx, vy,
-    w: 2.5 * getBulletSizeMult(),
-    h: 10 * getBulletSizeMult(),
-    color: '#44ffaa',
-    player: true,
-    damage: dmg,
-    homing: false,
-  });
-  spawnParticles(gx, gy - 10, 2, '#66ffcc', 2, 8);
-}
-function getSpecialCount() {
-  const base = [28,36,48,64][upgradeLevels.specialPower];
-  return base + getBigBombCountBonus();
-}
-function getSpecialDamage() {
-  const base = [3,5,8,12][upgradeLevels.specialPower];
-  return base + getBigBombDmgBonus();
-}
-function getSpecialBulletSpeed() { return 14; }
-function getSpecialBulletLife()  { return 55; }
-function getSideShotAngles() {
-  const lv = Math.max(upgradeLevels.sideShot, permLv('permSideShot'));
-  if (lv <= 0) return [];
-  if (lv === 1) return [-0.45, 0.45];
-  if (lv === 2) return [-0.85, -0.45, 0.45, 0.85];
-  if (lv === 3) return [-0.85, -0.45, 0.45, 0.85, Math.PI];
-  return [-1.0, -0.85, -0.45, 0.45, 0.85, 1.0, Math.PI];
 }
 
 // ----- ability purchase cap -----
@@ -429,12 +316,11 @@ function getMultiShotAngles() {
 }
 
 function getPermMultiAngles() {
-  // ショップ表示用（パワーアップは含めない）
   const total = Math.min(upgradeLevels.multishot + permLv('startMulti'), 4);
   return MULTI_ANGLE_TABLE[total];
 }
 
-// 永続込みの実効値ラベルを返すヘルパー
+// 永続込みの実効値ラベル（ショップ UI 用）
 const PERM_INTERACT = {
   // shop upgrade id → { getEffVal(shopLv): string }
   multishot: {
@@ -491,12 +377,6 @@ const PERM_INTERACT = {
     },
   },
 };
-function getStartPowerupDuration(id) {
-  const lv = permLv(id);
-  if (lv <= 0) return 0;
-  return [0, 600, 1200, 1800, 2400][Math.min(lv, 4)];
-}
-
 // ----- wave shop UI -----
 function isUpgradeAvailable(u) {
   if (upgradeLevels[u.id] >= u.maxLevel) return false;
@@ -506,8 +386,7 @@ function isUpgradeAvailable(u) {
 
 // ----- wave upgrade selection -----
 function pickWaveUpgrades() {
-  const available = UPGRADES.filter(isUpgradeAvailable);
-  const pool = available.length >= 3 ? available : available;
+  const pool = UPGRADES.filter(isUpgradeAvailable);
   // 特殊能力(ability)は出にくくする: passiveは重み3、abilityは重み1
   const weighted = [];
   pool.forEach(u => {

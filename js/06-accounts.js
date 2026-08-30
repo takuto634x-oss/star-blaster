@@ -523,7 +523,9 @@ let difficultyId = 'normal';
 let difficultyReturnTo = 'title';
 let playDifficultyId = 'normal';
 
+/** 難易度選択 UI 用（メニューで選んでいる値） */
 function getDifficulty() { return DIFFICULTIES[difficultyId] || DIFFICULTIES.normal; }
+/** プレイ中の実効難易度（startGame で difficultyId からコピー） */
 function getPlayDifficulty() { return DIFFICULTIES[playDifficultyId] || DIFFICULTIES.normal; }
 
 function isExtraUnlocked() {

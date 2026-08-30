@@ -108,3 +108,39 @@ function updateLivesUI() {
   }
 }
 
+// ----- in-game HUD overlays (canvas) -----
+let levelTextTimer = 0;
+function showLevelText() { levelTextTimer = 90; if (level > 1) Sfx.play('level', true); }
+function drawLevelText() {
+  if (levelTextTimer<=0) return;
+  ctx.save(); ctx.globalAlpha = Math.min(1,levelTextTimer/30);
+  ctx.fillStyle='#00ccff'; ctx.font='bold 36px Courier New'; ctx.textAlign='center';
+  ctx.shadowColor='#00ccff'; ctx.shadowBlur=20;
+  ctx.fillText(`LEVEL ${level}`, W/2, H/2);
+  ctx.restore(); levelTextTimer--;
+}
+
+const scorePopups = [];
+function addScorePopup(x,y,val) { scorePopups.push({x,y,val,life:50}); }
+function drawScorePopups() {
+  for (let i=scorePopups.length-1;i>=0;i--) {
+    const p=scorePopups[i]; p.y-=0.8; p.life--;
+    if (p.life<=0) { scorePopups.splice(i,1); continue; }
+    ctx.save(); ctx.globalAlpha=p.life/50; ctx.fillStyle='#ffcc00';
+    ctx.font='bold 14px Courier New'; ctx.textAlign='center';
+    ctx.fillText(`+${p.val}`,p.x,p.y); ctx.restore();
+  }
+}
+
+function drawComboHUD() {
+  if (_perfTier >= 2 || comboCount <= 1 || comboTimer <= 0) return;
+  ctx.save();
+  ctx.font = 'bold 12px Courier New';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#ffcc44';
+  ctx.shadowColor = '#ffaa00';
+  ctx.shadowBlur = 8;
+  ctx.fillText(`COMBO x${comboCount}`, W / 2, 98);
+  ctx.restore();
+}
+

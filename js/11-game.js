@@ -4,13 +4,10 @@ function update(doUI=true) {
 
   if (comboTimer > 0) comboTimer--;
   else comboCount = 0;
-
   if (permKillSpeedTimer > 0) permKillSpeedTimer--;
 
-  // --- Gauge: time-based fill (uses upgrade multiplier) ---
+  // --- gauge & shield regen ---
   addGauge(getGaugeFillRate());
-
-  // --- バリア自動充填 (ショップ + 永続) ---
   const shieldRegenIv = getEffectiveShieldRechargeInterval();
   if (shieldRegenIv > 0 && player.powerups.shield === 0) {
     shieldRechargeTimer--;
@@ -21,7 +18,7 @@ function update(doUI=true) {
     }
   }
 
-  // --- Player movement ---
+  // --- player input & shooting ---
   const baseSpd = player.speed * getMoveSpeedMult();
   const spd = baseSpd + (player.powerups.rapid>0?1:0);
   if (keys['ArrowLeft'] ||keys['KeyA']) player.x -= spd;
@@ -41,7 +38,7 @@ function update(doUI=true) {
   if (player.shootCooldown>0) player.shootCooldown--;
   Object.keys(player.powerups).forEach(k => { if (player.powerups[k]>0) player.powerups[k]--; });
 
-  // --- Player bullets vs enemies ---
+  // --- player bullets vs enemies (see 10-combat.js for shoot/activateSpecial) ---
   for (let i=bullets.length-1;i>=0;i--) {
     const b=bullets[i];
     b.x+=b.vx; b.y+=b.vy;
@@ -158,7 +155,7 @@ function update(doUI=true) {
     }
   }
 
-  // --- Wave transition → Upgrade screen ---
+  // --- wave clear → shop ---
   if (enemies.length===0 && !bossActive && frameCount>60) {
     showUpgradeScreen(lastWasBossKill);
     lastWasBossKill = false;
@@ -167,7 +164,7 @@ function update(doUI=true) {
 
   if (bossRef) document.getElementById('bossBarFill').style.width = `${bossRef.hp/bossRef.maxHp*100}%`;
 
-  // --- Enemy movement ---
+  // --- enemy AI & movement (spawn: 10-combat.js) ---
   for (let i=enemies.length-1;i>=0;i--) {
     const e=enemies[i];
     e.wobble+=0.04;

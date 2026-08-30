@@ -1,4 +1,4 @@
-// ===== INIT =====
+// ===== INIT (boot — must run last) =====
 async function bootApp() {
   try {
     await bootstrapAccounts();
