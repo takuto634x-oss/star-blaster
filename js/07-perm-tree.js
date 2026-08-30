@@ -268,49 +268,17 @@ const PERM_TREES = {
   }),
 };
 
-const CHARACTERS = [
-  {
-    id: 'blaster', name: 'ブラスター', symbol: '✦',
-    desc: 'バランス型。4系統すべて4/4まで伸ばせる万能ツリー。',
-    cost: 0, color: '#88ccff', glow: 'rgba(0,160,255,0.55)',
-    branchLabels: ['生存', '攻撃', '成長', 'ゲージ'],
-  },
-  {
-    id: 'guardian', name: 'ガーディアン', symbol: '♦',
-    desc: '防御特化。生存系4/4＋シールド再生・衛星展開。',
-    cost: 12, color: '#44ffaa', glow: 'rgba(0,200,100,0.55)',
-    branchLabels: ['防御', '反撃', '資源', '充能'],
-  },
-  {
-    id: 'striker', name: 'ストライカー', symbol: '▲',
-    desc: '火力特化。攻撃系4/4＋貫通・処刑・連鎖・キルレースト。',
-    cost: 12, color: '#ff8844', glow: 'rgba(255,100,40,0.55)',
-    branchLabels: ['耐久', '火力', '賞金', 'SP'],
-  },
-  {
-    id: 'volt', name: 'ヴォルト', symbol: '⚡',
-    desc: 'ゲージ特化。SP系4/4＋CD短縮・オーバーチャージ。',
-    cost: 15, color: '#cc66ff', glow: 'rgba(180,60,255,0.55)',
-    branchLabels: ['装甲', '出力', '効率', 'エネルギー'],
-  },
-];
-
 // ===== PERMANENT UPGRADE TREE (runtime) =====
 const PERM_STORAGE_KEY = 'starblaster_perm_v5';
 
 // ----- perm state -----
 let permPoints = 0;
-let activeCharId = 'blaster';
-let ownedChars = ['blaster'];
 const charPermData = { blaster: {} };
 const charPermActiveData = { blaster: {} };
 const permLevels = {};
 const permActiveLevels = {};
 let permArmorUsed = 0;
 
-function getActiveCharacter() {
-  return CHARACTERS.find(c => c.id === activeCharId) || CHARACTERS[0];
-}
 function getActivePermTree() {
   return PERM_TREES[activeCharId] || PERM_TREES.blaster;
 }
@@ -354,8 +322,8 @@ function getPermItemDropBonus() { return [0, 0.03, 0.06, 0.09, 0.12][permLv('ite
 function getPermBonusPts() { return permLv('bonusPts'); }
 function getPermSpecialCooldownMs() {
   const lv = permLv('permSpecialCd');
-  if (lv <= 0) return SPECIAL_COOLDOWN_MS;
-  return [10000, 8500, 7000, 5500, 4000][lv];
+  const base = lv <= 0 ? SPECIAL_COOLDOWN_MS : [10000, 8500, 7000, 5500, 4000][lv];
+  return Math.round(base * getCharSpecialCdMult());
 }
 function getPermOverchargeMult() { return [1, 1.15, 1.30, 1.45, 1.65][permLv('permOvercharge')]; }
 function getPermWaveGaugeBonus() { return [0, 0.12, 0.25, 0.40, 0.55][permLv('permWaveCharge')]; }
@@ -374,7 +342,9 @@ function getPermExecuteMult(hpRatio) {
   return [1, 1.5, 2.0, 2.6, 3.2][lv];
 }
 function getPermChainTargets() { return [0, 1, 2, 3, 4][permLv('permChain')]; }
-function getPermPierceCount() { return [0, 1, 2, 3, 4][Math.min(permLv('permPierce'), 4)]; }
+function getPermPierceCount() {
+  return [0, 1, 2, 3, 4][Math.min(permLv('permPierce'), 4)] + getCharPierceBonus();
+}
 function getPermBulletSizeBonus() { return [0, 0.15, 0.30, 0.45, 0.60][Math.min(permLv('permBulletSize'), 4)]; }
 function getPermBossDamageMult() { return 1 + [0, 0.15, 0.30, 0.50, 0.70][Math.min(permLv('permBossHunter'), 4)]; }
 function getPermComboBonusAdd() { return [0, 0.05, 0.10, 0.15, 0.20][Math.min(permLv('permComboMaster'), 4)]; }
@@ -594,6 +564,7 @@ function buildCharCenterNode(ch) {
   cnDiv.innerHTML =
     `<div class="pt-node-symbol" style="font-size:26px;color:${ch.color}">${ch.symbol}</div>` +
     `<div class="pt-node-name" style="color:rgba(220,240,255,0.9);font-size:8px;letter-spacing:1px">${ch.name}</div>` +
+    `<div class="pt-char-tagline">${ch.tagline || ''}</div>` +
     `<div class="pt-char-hint">タップで変更</div>`;
   bindPtNodeTap(cnDiv, () => openCharSelect());
   return cnDiv;
@@ -773,8 +744,7 @@ function renderPermTree() {
 
   if (tip) tip.className = 'hidden';
   document.getElementById('ptTotal').textContent = permPoints;
-  const titleEl = document.getElementById('ptCharTitle');
-  if (titleEl) titleEl.textContent = ch.name;
+  renderCharHeader(ch);
 }
 
 function buyPermUpgrade(id) {
@@ -804,88 +774,6 @@ if (!document.getElementById('ptFlashStyle')) {
   s.id = 'ptFlashStyle';
   s.textContent = '@keyframes ptFlash{0%{opacity:1}100%{opacity:0}}';
   document.head.appendChild(s);
-}
-
-// ----- character select -----
-function openCharSelect() {
-  document.getElementById('charSelectPts').textContent = permPoints;
-  renderCharSelect();
-  document.getElementById('charSelectOverlay').classList.remove('hidden');
-}
-
-function closeCharSelect() {
-  document.getElementById('charSelectOverlay').classList.add('hidden');
-}
-
-function renderCharSelect() {
-  const grid = document.getElementById('charSelectGrid');
-  grid.innerHTML = '';
-  CHARACTERS.forEach(ch => {
-    const owned = ownedChars.includes(ch.id);
-    const active = ch.id === activeCharId;
-    const card = document.createElement('div');
-    card.className = 'char-card' + (active ? ' active' : '') + (!owned ? ' locked' : '');
-
-    let btnHtml;
-    if (active) {
-      btnHtml = '<button class="char-card-btn select" disabled>使用中</button>';
-    } else if (owned) {
-      btnHtml = '<button class="char-card-btn select">選択する</button>';
-    } else if (permPoints >= ch.cost) {
-      btnHtml = `<button class="char-card-btn buy">${ch.cost} PT で購入</button>`;
-    } else {
-      btnHtml = `<button class="char-card-btn buy" disabled>${ch.cost} PT（不足）</button>`;
-    }
-
-    card.innerHTML =
-      `<div class="char-card-symbol" style="color:${ch.color}">${ch.symbol}</div>` +
-      `<div class="char-card-name">${ch.name}</div>` +
-      `<div class="char-card-desc">${ch.desc}</div>${btnHtml}`;
-
-    const btn = card.querySelector('.char-card-btn');
-    if (btn && !btn.disabled) {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (owned) selectCharacter(ch.id);
-        else buyCharacter(ch.id);
-      });
-    }
-    grid.appendChild(card);
-  });
-  document.getElementById('charSelectPts').textContent = permPoints;
-}
-
-function selectCharacter(charId) {
-  if (!ownedChars.includes(charId) || charId === activeCharId) return;
-  flushPermLevelsToChar(activeCharId);
-  flushPermActiveToChar(activeCharId);
-  activeCharId = charId;
-  syncPermLevelsFromChar(charId);
-  syncPermActiveFromChar(charId);
-  savePerm();
-  renderPermTree();
-  centerPtTreeView();
-  renderCharSelect();
-}
-
-function buyCharacter(charId) {
-  const ch = CHARACTERS.find(c => c.id === charId);
-  if (!ch || ownedChars.includes(charId) || permPoints < ch.cost) return;
-  permPoints -= ch.cost;
-  ownedChars.push(charId);
-  charPermData[charId] = charPermData[charId] || {};
-  charPermActiveData[charId] = charPermActiveData[charId] || {};
-  flushPermLevelsToChar(activeCharId);
-  flushPermActiveToChar(activeCharId);
-  activeCharId = charId;
-  syncPermLevelsFromChar(charId);
-  syncPermActiveFromChar(charId);
-  savePerm();
-  Achievements.onCharBuy();
-  renderPermTree();
-  centerPtTreeView();
-  renderCharSelect();
-  document.getElementById('ptTotal').textContent = permPoints;
 }
 
 // ----- perm tree screen -----
@@ -937,16 +825,11 @@ function returnToTitleFromPermTree() {
 const PermHub = {
   init() {
     initPtTreePan();
-    document.getElementById('charSelectClose')?.addEventListener('click', closeCharSelect);
-    document.getElementById('ptCharBtn')?.addEventListener('click', openCharSelect);
     document.getElementById('permHubBtn')?.addEventListener('click', openPermHub);
     document.getElementById('ptTitleBtn')?.addEventListener('click', returnToTitleFromPermTree);
     document.getElementById('ptStartBtn')?.addEventListener('click', () => {
       Sfx.play('ui', true);
       openDifficultySelect('permTree');
-    });
-    document.getElementById('charSelectOverlay')?.addEventListener('click', (e) => {
-      if (e.target.id === 'charSelectOverlay') closeCharSelect();
     });
   },
 };

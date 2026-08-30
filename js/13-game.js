@@ -673,6 +673,7 @@ function startGame(fromDebug = false) {
     if (laserDur > 0) player.powerups.laser = laserDur;
     const rapidDur = getStartPowerupDuration('startRapid');
     if (rapidDur > 0) player.powerups.rapid = rapidDur;
+    applyCharacterStartBonuses();
   }
   permArmorUsed = 0;
   shieldRechargeTimer = getEffectiveShieldRechargeInterval() || 0;

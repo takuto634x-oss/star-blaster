@@ -657,6 +657,19 @@
       font-size: 11px; letter-spacing: 4px; color: rgba(180,140,255,0.65);
       text-transform: uppercase; margin-top: 6px;
     }
+    .pt-char-tagline {
+      font-size: 10px; color: rgba(200, 220, 255, 0.75); text-align: center;
+      letter-spacing: 1px; margin-top: 4px;
+    }
+    .pt-char-traits {
+      display: flex; flex-wrap: wrap; gap: 5px; justify-content: center;
+      margin-top: 6px; max-width: 520px; margin-left: auto; margin-right: auto;
+    }
+    .pt-char-trait {
+      font-size: 8px; letter-spacing: 0.5px; padding: 2px 7px; border-radius: 10px;
+      color: rgba(180, 220, 255, 0.9); background: rgba(0, 30, 70, 0.55);
+      border: 1px solid rgba(80, 140, 220, 0.35);
+    }
     /* Tree */
     .pt-tree-area {
       position: relative; flex: 1; width: 100%; min-height: 0;
@@ -699,6 +712,10 @@
     }
     .pt-node.char-node .pt-char-hint {
       font-size: 6px; color: rgba(180,220,255,0.65); margin-top: 3px; letter-spacing: 0.5px;
+    }
+    .pt-node.char-node .pt-char-tagline {
+      font-size: 5.5px; color: rgba(200,230,255,0.7); margin-top: 2px; line-height: 1.2;
+      max-width: 72px; letter-spacing: 0;
     }
     .pt-node.unlocked {
       background: radial-gradient(circle at 40% 35%, rgba(0,100,50,0.7), rgba(0,15,40,0.95));
@@ -805,7 +822,21 @@
     .char-card.locked { opacity: 0.72; cursor: default; }
     .char-card-symbol { font-size: 28px; line-height: 1; margin-bottom: 4px; }
     .char-card-name { font-size: 10px; font-weight: bold; color: rgba(180,210,255,0.95); letter-spacing: 1px; }
-    .char-card-desc { font-size: 7.5px; color: rgba(120,160,210,0.75); margin: 4px 0 6px; line-height: 1.35; min-height: 22px; }
+    .char-card-tagline {
+      font-size: 8px; color: rgba(255, 220, 140, 0.85); margin-top: 3px; line-height: 1.3;
+      letter-spacing: 0.5px;
+    }
+    .char-card-traits {
+      list-style: none; margin: 5px 0 4px; padding: 0; text-align: left;
+    }
+    .char-card-traits li {
+      font-size: 7.5px; color: rgba(140, 190, 255, 0.9); line-height: 1.45;
+      padding-left: 10px; position: relative;
+    }
+    .char-card-traits li::before {
+      content: '▸'; position: absolute; left: 0; color: rgba(100, 180, 255, 0.7); font-size: 7px;
+    }
+    .char-card-desc { font-size: 7.5px; color: rgba(120,160,210,0.75); margin: 4px 0 6px; line-height: 1.35; min-height: 18px; }
     .char-card-btn {
       font-family: 'Courier New', monospace; font-size: 9px; font-weight: bold;
       padding: 4px 8px; border-radius: 4px; border: 1px solid;
@@ -1261,6 +1292,8 @@
         <div class="pt-pts-unit">PT 保有</div>
       </div>
       <div class="pt-title">✦ <span id="ptCharTitle">ブラスター</span> の強化ツリー ✦</div>
+      <div class="pt-char-tagline" id="ptCharTagline"></div>
+      <div class="pt-char-traits" id="ptCharTraits"></div>
     </div>
     <div class="pt-tree-area" id="ptTreeArea">
       <div class="pt-tree-pan" id="ptTreePan">
@@ -1386,16 +1419,18 @@
 <script src="js/02-sound.js"></script>
 <script src="js/03-ui-hud.js"></script>
 <script src="js/04-wave-shop.js"></script>
-<script src="js/05-perm-tree.js"></script>
-<script src="js/06-accounts.js"></script>
-<script src="js/07-screen-ui.js"></script>
-<script src="js/08-input.js"></script>
-<script src="js/09-visual.js"></script>
-<script src="js/10-combat.js"></script>
-<script src="js/11-game.js"></script>
-<script src="js/12-debug.js"></script>
-<script src="js/13-tutorial.js"></script>
-<script src="js/14-achievements.js"></script>
+<script src="js/05-characters.js"></script>
+<script src="js/06-forbidden.js"></script>
+<script src="js/07-perm-tree.js"></script>
+<script src="js/08-accounts.js"></script>
+<script src="js/09-screen-ui.js"></script>
+<script src="js/10-input.js"></script>
+<script src="js/11-visual.js"></script>
+<script src="js/12-combat.js"></script>
+<script src="js/13-game.js"></script>
+<script src="js/14-debug.js"></script>
+<script src="js/15-tutorial.js"></script>
+<script src="js/16-achievements.js"></script>
 <script src="js/99-init.js"></script>
 </body>
 </html>
