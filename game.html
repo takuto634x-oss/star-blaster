@@ -347,6 +347,20 @@
     .leaderboard-diff-tabs {
       display: flex; gap: 6px; justify-content: center; margin-bottom: 12px;
     }
+    .leaderboard-mode-tabs {
+      display: flex; gap: 8px; justify-content: center; margin-bottom: 10px;
+    }
+    .leaderboard-mode-tab {
+      flex: 1; max-width: 160px; padding: 9px 10px;
+      font-family: 'Courier New', monospace; font-size: 11px; font-weight: bold; letter-spacing: 1px;
+      background: rgba(0, 12, 36, 0.75); border: 1px solid rgba(80, 140, 220, 0.35);
+      border-radius: 6px; color: rgba(180, 210, 255, 0.65); cursor: pointer;
+      transition: border-color 0.15s, background 0.15s, color 0.15s;
+    }
+    .leaderboard-mode-tab.active { color: #e8f4ff; background: rgba(0, 40, 80, 0.55); border-color: rgba(0, 180, 255, 0.75); }
+    .leaderboard-mode-tab.active[data-lb-mode="weekly"] {
+      border-color: rgba(255, 180, 80, 0.8); background: rgba(50, 30, 8, 0.45); color: #ffe0a8;
+    }
     .leaderboard-diff-tab {
       flex: 1; max-width: 110px; padding: 8px 6px;
       font-family: 'Courier New', monospace; font-size: 11px; font-weight: bold; letter-spacing: 1px;
@@ -358,6 +372,92 @@
     .leaderboard-diff-tab.active[data-lb-diff="easy"] { border-color: rgba(80, 220, 140, 0.75); background: rgba(0, 50, 28, 0.45); color: #b8ffd0; }
     .leaderboard-diff-tab.active[data-lb-diff="hard"] { border-color: rgba(255, 90, 90, 0.8); background: rgba(50, 10, 10, 0.45); color: #ffb8b8; }
     .leaderboard-diff-tab.active[data-lb-diff="extra"] { border-color: rgba(255, 60, 200, 0.8); background: rgba(50, 8, 40, 0.45); color: #ffb0e8; }
+
+    /* ===== ACHIEVEMENTS ===== */
+    #achievementsOverlay {
+      position: absolute; inset: 0; z-index: 36;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0, 4, 24, 0.94); backdrop-filter: blur(6px);
+      padding: 16px; overflow-y: auto;
+    }
+    #achievementsOverlay.hidden { display: none; }
+    .achievements-panel {
+      width: min(440px, 96vw);
+      max-height: 90dvh; overflow-y: auto;
+      background: linear-gradient(160deg, rgba(12,8,40,0.98), rgba(4,6,28,0.98));
+      border: 1px solid rgba(180, 120, 255, 0.4);
+      border-radius: 12px; padding: 20px 18px 16px;
+      box-shadow: 0 0 40px rgba(140, 80, 255, 0.12);
+    }
+    .achievements-title { font-size: 20px; font-weight: bold; color: #e8d0ff; letter-spacing: 3px; text-align: center; margin-bottom: 4px; }
+    .achievements-sub { font-size: 11px; color: rgba(200, 180, 255, 0.7); text-align: center; letter-spacing: 1px; margin-bottom: 6px; }
+    .achievements-progress { font-size: 12px; color: #ffcc66; text-align: center; margin-bottom: 14px; letter-spacing: 1px; }
+    .achievements-list {
+      display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px;
+      max-height: min(52dvh, 420px); overflow-y: auto; -webkit-overflow-scrolling: touch;
+    }
+    .achievement-row {
+      display: grid; grid-template-columns: 40px 1fr 28px; gap: 10px; align-items: center;
+      padding: 10px 12px; border-radius: 8px;
+      background: rgba(0, 12, 36, 0.65); border: 1px solid rgba(80, 100, 180, 0.25);
+      opacity: 0.72;
+    }
+    .achievement-row.unlocked {
+      opacity: 1; border-color: rgba(180, 120, 255, 0.55);
+      background: rgba(20, 8, 48, 0.55);
+      box-shadow: 0 0 10px rgba(140, 80, 255, 0.12);
+    }
+    .achievement-icon {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: bold; color: #c8b0ff;
+      background: rgba(0, 8, 32, 0.9); border: 1px solid rgba(120, 80, 200, 0.4);
+    }
+    .achievement-row.unlocked .achievement-icon {
+      color: #ffe8a8; border-color: rgba(255, 200, 80, 0.55);
+      box-shadow: 0 0 8px rgba(255, 180, 60, 0.25);
+    }
+    .achievement-name { font-size: 13px; font-weight: bold; color: #eef0ff; letter-spacing: 0.5px; }
+    .achievement-desc { font-size: 10px; color: rgba(160, 180, 230, 0.8); margin-top: 2px; line-height: 1.4; }
+    .achievement-date { font-size: 9px; color: rgba(255, 200, 120, 0.65); margin-top: 3px; }
+    .achievement-status { font-size: 16px; text-align: center; color: rgba(100, 120, 160, 0.6); }
+    .achievement-row.unlocked .achievement-status { color: #66ffbb; }
+    .achievements-section {
+      font-size: 11px; letter-spacing: 2px; color: rgba(255, 140, 100, 0.85);
+      text-align: center; margin: 12px 0 8px; padding-top: 8px;
+      border-top: 1px solid rgba(255, 100, 80, 0.25);
+    }
+    .achievement-row.hard { border-color: rgba(255, 90, 70, 0.35); opacity: 0.78; }
+    .achievement-row.hard.unlocked {
+      border-color: rgba(255, 140, 60, 0.75);
+      background: rgba(40, 12, 8, 0.55);
+      box-shadow: 0 0 12px rgba(255, 100, 40, 0.18);
+      opacity: 1;
+    }
+    .achievement-row.hard .achievement-name { color: #ffd0c0; }
+    .achievement-row.hard.unlocked .achievement-icon {
+      color: #ffe0a0; border-color: rgba(255, 160, 60, 0.65);
+      box-shadow: 0 0 10px rgba(255, 120, 40, 0.3);
+    }
+    .achievement-hard-tag {
+      font-size: 8px; letter-spacing: 1px; color: rgba(255, 120, 90, 0.9);
+      vertical-align: middle;
+    }
+    .achievements-actions { display: flex; justify-content: center; }
+    .achievements-actions .btn { padding: 10px 28px; font-size: 12px; margin: 0; width: auto; min-width: 0; }
+    #achievementToast {
+      position: absolute; top: 14%; left: 50%; transform: translateX(-50%);
+      z-index: 55; pointer-events: none; text-align: center;
+      padding: 12px 20px; border-radius: 10px;
+      background: rgba(12, 6, 40, 0.92); border: 1px solid rgba(200, 140, 255, 0.65);
+      box-shadow: 0 0 24px rgba(140, 80, 255, 0.35);
+      opacity: 0; transition: opacity 0.3s;
+    }
+    #achievementToast.show { opacity: 1; }
+    #achievementToast.hidden { display: none; }
+    .achievement-toast-title { font-size: 10px; letter-spacing: 3px; color: rgba(255, 200, 120, 0.85); margin-bottom: 4px; }
+    .achievement-toast-name { font-size: 18px; font-weight: bold; color: #e8d0ff; letter-spacing: 2px; }
+    .achievement-toast-desc { font-size: 10px; color: rgba(180, 200, 255, 0.85); margin-top: 4px; }
 
     /* ===== DIFFICULTY ===== */
     #difficultyOverlay {
@@ -498,6 +598,18 @@
     .upg-tag { font-size: 8px; letter-spacing: 1.5px; padding: 1px 5px; border-radius: 2px; text-transform: uppercase; font-weight: bold; }
     .upg-tag.passive { background: rgba(0,100,200,0.3); color: rgba(100,180,255,0.9); border: 1px solid rgba(0,150,255,0.3); }
     .upg-tag.ability { background: rgba(150,0,200,0.3); color: rgba(200,100,255,0.9); border: 1px solid rgba(180,50,255,0.3); }
+    .upg-tag.forbidden { background: rgba(120,0,40,0.55); color: #ff88aa; border: 1px solid rgba(255,60,100,0.55); }
+    /* 禁断の1枚 */
+    .upg-forbidden-slot { width: 100%; max-width: 620px; margin-bottom: 12px; }
+    .upg-forbidden-slot.hidden { display: none; }
+    .upg-forbidden-label { font-size: 10px; letter-spacing: 3px; color: #ff6688; text-align: center; margin-bottom: 6px; text-shadow: 0 0 8px rgba(255,50,80,0.5); animation: forbiddenPulse 2s ease-in-out infinite; }
+    @keyframes forbiddenPulse { 0%,100% { opacity: 0.75; } 50% { opacity: 1; } }
+    .upg-card.forbidden { border: 1px solid rgba(255,60,100,0.55); background: linear-gradient(180deg, rgba(40,8,28,0.92), rgba(18,4,24,0.92)); box-shadow: 0 0 18px rgba(200,40,80,0.25), inset 0 0 24px rgba(120,0,40,0.15); }
+    .upg-card.forbidden:hover:not(.locked) { border-color: rgba(255,100,140,0.75); box-shadow: 0 0 24px rgba(255,60,100,0.4); }
+    .upg-card.forbidden .upg-symbol { color: #ff99bb; }
+    .upg-card.forbidden .upg-cost { color: #ff88aa; font-weight: bold; }
+    .upg-buy.forbidden-buy { background: rgba(120,20,50,0.45); border-color: rgba(255,80,120,0.6); color: #ff88aa; }
+    .upg-buy.forbidden-buy:hover:not(:disabled) { background: rgba(180,30,70,0.55); box-shadow: 0 0 12px rgba(255,60,100,0.45); color: #fff; }
     /* Reroll button row */
     .upg-reroll-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
     .upg-reroll-btn { padding: 5px 16px; font-size: 11px; font-family: 'Courier New', monospace; font-weight: bold; letter-spacing: 1px; background: rgba(40,20,80,0.5); border: 1px solid rgba(180,100,255,0.5); color: #cc88ff; cursor: pointer; border-radius: 3px; transition: all 0.15s; }
@@ -547,8 +659,9 @@
     /* Tree */
     .pt-tree-area {
       position: relative; flex: 1; width: 100%; min-height: 0;
-      overflow: hidden; touch-action: manipulation;
+      overflow: hidden; cursor: grab; touch-action: none;
     }
+    .pt-tree-area.pt-dragging { cursor: grabbing; }
     .pt-tree-pan {
       position: absolute; top: 0; left: 0;
       width: 720px; height: 620px;
@@ -941,6 +1054,11 @@
   </div>
 
   <div id="debugBadge" class="hidden">DEBUG</div>
+  <div id="achievementToast" class="hidden">
+    <div class="achievement-toast-title">実績解除！</div>
+    <div class="achievement-toast-name"></div>
+    <div class="achievement-toast-desc"></div>
+  </div>
 
   <div id="speedUI">
     <button class="speed-btn active" data-speed="1" title="1倍速 [1]">1x</button>
@@ -1007,7 +1125,11 @@
   <div id="leaderboardOverlay" class="hidden">
     <div class="leaderboard-panel">
       <div class="leaderboard-title">スコアランキング</div>
-      <div class="leaderboard-sub">共有ゲームアカウント別ハイスコア（難易度ごと）</div>
+      <div class="leaderboard-sub" id="leaderboardSub">共有ゲームアカウント別ハイスコア（難易度ごと）</div>
+      <div class="leaderboard-mode-tabs">
+        <button type="button" class="leaderboard-mode-tab active" data-lb-mode="all">通算ベスト</button>
+        <button type="button" class="leaderboard-mode-tab" data-lb-mode="weekly">週間ベスト</button>
+      </div>
       <div class="leaderboard-diff-tabs">
         <button type="button" class="leaderboard-diff-tab" data-lb-diff="easy">EASY</button>
         <button type="button" class="leaderboard-diff-tab active" data-lb-diff="normal">NORMAL</button>
@@ -1017,6 +1139,19 @@
       <div class="leaderboard-list" id="leaderboardList"></div>
       <div class="leaderboard-actions">
         <button type="button" class="btn btn-secondary" id="leaderboardCloseBtn">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Achievements -->
+  <div id="achievementsOverlay" class="hidden">
+    <div class="achievements-panel">
+      <div class="achievements-title">🏆 実績</div>
+      <div class="achievements-sub">アカウントごとに保存されます</div>
+      <div class="achievements-progress" id="achievementsProgress">0 / 0 解除</div>
+      <div class="achievements-list" id="achievementsList"></div>
+      <div class="achievements-actions">
+        <button type="button" class="btn btn-secondary" id="achievementsCloseBtn">閉じる</button>
       </div>
     </div>
   </div>
@@ -1063,6 +1198,7 @@
     <button class="btn btn-secondary" id="tutorialBtn" type="button">📖 遊び方</button>
     <button class="btn btn-secondary" id="profileSwitchBtn" type="button">ゲームアカウント切替</button>
     <button class="btn btn-secondary" id="leaderboardBtn" type="button">ランキング</button>
+    <button class="btn btn-secondary" id="achievementsBtn" type="button">🏆 実績</button>
     <button class="btn btn-secondary" id="permHubBtn" type="button">キャラクター / 強化</button>
     <button class="btn btn-debug hidden" id="debugBtn" type="button">デバッグモード</button>
     <div id="debugUnlockToast" class="hidden">DEBUG UNLOCKED</div>
@@ -1132,7 +1268,7 @@
       </div>
     </div>
     <div class="pt-footer">
-      <div class="pt-hint">中央キャラをタップで変更 / ノードタップで購入 / ＋－で適用Lv変更</div>
+      <div class="pt-hint">ドラッグで移動 / 中央キャラをタップで変更 / ノードタップで購入 / ＋－で適用Lv変更</div>
       <div class="pt-footer-btns">
         <button class="btn btn-pt-sub" id="ptCharBtn" type="button">キャラクター変更</button>
         <button class="btn btn-pt-sub" id="ptTitleBtn" type="button">タイトルに戻る</button>
@@ -1161,6 +1297,7 @@
       <div class="upg-ability-cap" id="abilityCapDisplay"></div>
     </div>
     <div class="upg-grid" id="upgradeGrid"></div>
+    <div id="forbiddenCardSlot" class="upg-forbidden-slot hidden"></div>
     <div class="upg-reroll-row">
       <button class="upg-reroll-btn" id="rerollBtn">シャッフル (1PT)</button>
       <span class="upg-reroll-left" id="rerollsLeft">残り2回</span>
@@ -1257,6 +1394,7 @@
 <script src="js/11-game.js"></script>
 <script src="js/12-debug.js"></script>
 <script src="js/13-tutorial.js"></script>
+<script src="js/14-achievements.js"></script>
 <script src="js/99-init.js"></script>
 </body>
 </html>

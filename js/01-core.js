@@ -14,6 +14,7 @@
  * 11-game.js       update, draw, start/end, gameLoop
  * 12-debug.js      debug mode
  * 13-tutorial.js   tutorial
+ * 14-achievements.js achievements
  * 99-init.js       boot (must be last)
  */
 

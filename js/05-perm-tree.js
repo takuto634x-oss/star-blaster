@@ -501,6 +501,7 @@ const PT_LABEL_POS = [
 ];
 
 let ptPanX = 0, ptPanY = 0;
+let ptPanDrag = null;
 
 function getPtTreeScale() {
   if (!isTouchDevice()) return 1;
@@ -528,6 +529,42 @@ function centerPtTreeView() {
   ptPanX = rect.width / 2 - PT_CX * s;
   ptPanY = rect.height / 2 - PT_CY * s;
   applyPtPan();
+}
+
+function initPtTreePan() {
+  const area = document.getElementById('ptTreeArea');
+  if (!area || area._ptPanInit) return;
+  area._ptPanInit = true;
+
+  area.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    if (e.target.closest('.pt-node, .pt-node-wrap, .pt-equip-btn, button')) return;
+    ptPanDrag = {
+      pid: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      panX: ptPanX,
+      panY: ptPanY,
+    };
+    area.setPointerCapture(e.pointerId);
+    area.classList.add('pt-dragging');
+  });
+
+  area.addEventListener('pointermove', (e) => {
+    if (!ptPanDrag || e.pointerId !== ptPanDrag.pid) return;
+    ptPanX = ptPanDrag.panX + (e.clientX - ptPanDrag.startX);
+    ptPanY = ptPanDrag.panY + (e.clientY - ptPanDrag.startY);
+    applyPtPan();
+  });
+
+  const endPan = (e) => {
+    if (!ptPanDrag || e.pointerId !== ptPanDrag.pid) return;
+    ptPanDrag = null;
+    area.classList.remove('pt-dragging');
+    try { area.releasePointerCapture(e.pointerId); } catch (_) {}
+  };
+  area.addEventListener('pointerup', endPan);
+  area.addEventListener('pointercancel', endPan);
 }
 
 // ツリーノードのタップ
@@ -751,6 +788,7 @@ function buyPermUpgrade(id) {
   permLevels[id] = owned + 1;
   delete permActiveLevels[id];
   savePerm();
+  Achievements.onPermBuy();
   // 購入フラッシュ
   const area = document.getElementById('ptTreeArea');
   const flash = document.createElement('div');
@@ -843,6 +881,7 @@ function buyCharacter(charId) {
   syncPermLevelsFromChar(charId);
   syncPermActiveFromChar(charId);
   savePerm();
+  Achievements.onCharBuy();
   renderPermTree();
   centerPtTreeView();
   renderCharSelect();
@@ -897,6 +936,7 @@ function returnToTitleFromPermTree() {
 // ===== PERM HUB (events) =====
 const PermHub = {
   init() {
+    initPtTreePan();
     document.getElementById('charSelectClose')?.addEventListener('click', closeCharSelect);
     document.getElementById('ptCharBtn')?.addEventListener('click', openCharSelect);
     document.getElementById('permHubBtn')?.addEventListener('click', openPermHub);

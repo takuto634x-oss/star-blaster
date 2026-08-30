@@ -5,6 +5,12 @@ let currentWaveUpgrades = []; // 今ウェーブで表示する3枠
 let rerollsLeft = 2;
 let shieldRechargeTimer = 0;
 let shopPurchasedIds = new Set(); // 今回のショップで購入済みのID
+let forbiddenOffer = null; // { upgId, bonusLevels } | null
+let forbiddenPurchased = false;
+
+const FORBIDDEN_BONUS_LEVELS = 2;
+const FORBIDDEN_COST_MULT = 2.2;
+const FORBIDDEN_MIN_WAVE = 4;
 
 const upgradeLevels = {
   // パッシブ
@@ -402,13 +408,53 @@ function pickWaveUpgrades() {
   }).slice(0, 4);
 }
 
+function pickForbiddenOffer(isBoss = false, isReroll = false) {
+  forbiddenOffer = null;
+  if (level < FORBIDDEN_MIN_WAVE) return;
+  const chance = isReroll
+    ? (isBoss ? 0.28 : 0.14)
+    : (isBoss ? 0.45 : 0.22);
+  if (Math.random() >= chance) return;
+
+  const pool = UPGRADES.filter(u => {
+    if (upgradeLevels[u.id] >= u.maxLevel) return false;
+    if (u.tag === 'ability' && upgradeLevels[u.id] === 0 && isAbilityAtCap()) return false;
+    return true;
+  });
+  if (pool.length === 0) return;
+
+  const weighted = [];
+  pool.forEach(u => {
+    const w = u.tag === 'ability' ? 2 : 1;
+    for (let i = 0; i < w; i++) weighted.push(u);
+  });
+  const pick = weighted[Math.floor(Math.random() * weighted.length)];
+  forbiddenOffer = { upgId: pick.id, bonusLevels: FORBIDDEN_BONUS_LEVELS };
+}
+
+function getForbiddenCost(upg) {
+  const lv = upgradeLevels[upg.id];
+  let total = 0;
+  for (let i = 0; i < FORBIDDEN_BONUS_LEVELS && lv + i < upg.maxLevel; i++) {
+    total += getUpgradeCost(upg, lv + i);
+  }
+  return Math.ceil(total * FORBIDDEN_COST_MULT) + 2;
+}
+
+function getForbiddenGainLevels(upg) {
+  const lv = upgradeLevels[upg.id];
+  return Math.min(FORBIDDEN_BONUS_LEVELS, upg.maxLevel - lv);
+}
+
 function doReroll() {
   if (rerollsLeft <= 0 || upgradePoints < 1) return;
   upgradePoints--;
   rerollsLeft--;
   shopPurchasedIds = new Set();
+  forbiddenPurchased = false;
   document.getElementById('upgradePointsDisplay').textContent = upgradePoints;
   pickWaveUpgrades(); // 再選出
+  pickForbiddenOffer(false, true);
   renderUpgradeGrid();
   document.getElementById('rerollsLeft').textContent = `残り${rerollsLeft}回`;
   document.getElementById('rerollBtn').disabled = rerollsLeft <= 0 || upgradePoints < 1;
@@ -435,12 +481,15 @@ function showUpgradeScreen(isBoss) {
     document.getElementById('levelDisplay').textContent = level;
     return;
   }
+  Achievements.onWaveClear(level, isBoss);
   state = 'upgrade';
   bullets.length = 0;
   enemyBullets.length = 0;
   rerollsLeft = 2 + getRerollBonus();
   shopPurchasedIds = new Set();
+  forbiddenPurchased = false;
   pickWaveUpgrades();
+  pickForbiddenOffer(isBoss);
   const earned = awardPoints(isBoss);
   document.getElementById('upgWaveInfo').textContent = isBoss ? 'BOSS CLEAR !' : 'WAVE CLEAR !';
   const badge = document.getElementById('upgEarnedBadge');
@@ -507,6 +556,89 @@ function renderUpgradeGrid() {
     }
     grid.appendChild(card);
   });
+  renderForbiddenCard();
+}
+
+function renderForbiddenCard() {
+  const slot = document.getElementById('forbiddenCardSlot');
+  if (!slot) return;
+  slot.innerHTML = '';
+  slot.classList.add('hidden');
+  if (!forbiddenOffer || forbiddenPurchased) return;
+
+  const upg = UPGRADES.find(u => u.id === forbiddenOffer.upgId);
+  if (!upg) return;
+  const lv = upgradeLevels[upg.id];
+  if (lv >= upg.maxLevel) return;
+
+  const gain = getForbiddenGainLevels(upg);
+  if (gain <= 0) return;
+
+  const cost = getForbiddenCost(upg);
+  const boughtThisShop = shopPurchasedIds.has(upg.id);
+  const abilityBlocked = upg.tag === 'ability' && lv === 0 && isAbilityAtCap();
+  const canAfford = upgradePoints >= cost;
+  const canBuy = !boughtThisShop && !abilityBlocked && canAfford && canBuyAbility(upg.id);
+
+  const pi = PERM_INTERACT[upg.id];
+  const currVal = pi ? pi.getEffVal(lv) : upg.vals[lv];
+  const nextLv = Math.min(upg.maxLevel, lv + gain);
+  const nextVal = pi ? pi.getEffVal(nextLv) : upg.vals[nextLv];
+  const valStr = `${currVal} → ${nextVal}（+${gain}）`;
+
+  const pips = Array.from({ length: upg.maxLevel }, (_, i) =>
+    `<div class="upg-pip${i < lv ? ' on' : ''}"></div>`
+  ).join('');
+
+  const costLabel = boughtThisShop ? '通常枠で購入済' : abilityBlocked ? '特殊能力上限' : `${cost} PT`;
+  const btnLabel = boughtThisShop ? '購入不可' : abilityBlocked ? '上限' : `禁断を購入 (${cost}PT)`;
+
+  slot.classList.remove('hidden');
+  slot.innerHTML = `
+    <div class="upg-forbidden-label">⚠ 禁断の1枚 ⚠</div>
+    <div class="upg-card forbidden${canBuy ? '' : ' locked'}">
+      <div class="upg-tag forbidden">禁断 · ${upg.tag === 'ability' ? '特殊能力' : 'パッシブ'}</div>
+      <div class="upg-symbol">${upg.symbol}</div>
+      <div class="upg-name">${upg.name}</div>
+      <div class="upg-desc">一度に${gain}段階強化 · ${upg.desc}</div>
+      <div class="upg-curr-val">${valStr}</div>
+      <div class="upg-pips">${pips}</div>
+      <div class="upg-cost">${costLabel}</div>
+      <button class="upg-buy forbidden-buy" ${canBuy ? '' : 'disabled'} data-forbidden="1">${btnLabel}</button>
+    </div>`;
+
+  if (canBuy) {
+    slot.querySelector('.forbidden-buy')?.addEventListener('click', () => buyForbiddenUpgrade());
+  }
+}
+
+function buyForbiddenUpgrade() {
+  if (!forbiddenOffer || forbiddenPurchased) return;
+  const upg = UPGRADES.find(u => u.id === forbiddenOffer.upgId);
+  if (!upg) return;
+  const lv = upgradeLevels[upg.id];
+  if (lv >= upg.maxLevel) return;
+  if (!canBuyAbility(upg.id) || shopPurchasedIds.has(upg.id)) return;
+
+  const gain = getForbiddenGainLevels(upg);
+  const cost = getForbiddenCost(upg);
+  if (upgradePoints < cost || gain <= 0) return;
+
+  upgradePoints -= cost;
+  upgradeLevels[upg.id] = Math.min(upg.maxLevel, lv + gain);
+  shopPurchasedIds.add(upg.id);
+  forbiddenPurchased = true;
+  forbiddenOffer = null;
+
+  if (upg.id === 'shieldRecharge' && shieldRechargeTimer === 0) {
+    shieldRechargeTimer = getEffectiveShieldRechargeInterval();
+  }
+
+  document.getElementById('upgradePointsDisplay').textContent = upgradePoints;
+  document.getElementById('rerollBtn').disabled = rerollsLeft <= 0 || upgradePoints < 1;
+  renderUpgradeGrid();
+  updateAbilityCapUI();
+  Sfx.play('bossClear', true);
 }
 
 function buyUpgrade(id) {

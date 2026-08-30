@@ -4,6 +4,7 @@ function update(doUI=true) {
 
   if (comboTimer > 0) comboTimer--;
   else comboCount = 0;
+  Achievements.tickRunCombo();
   if (permKillSpeedTimer > 0) permKillSpeedTimer--;
 
   // --- gauge & shield regen ---
@@ -149,6 +150,7 @@ function update(doUI=true) {
           bossActive=false; bossRef=null; lastWasBossKill=true;
           document.getElementById('bossHealth').classList.remove('visible');
         }
+        Achievements.onEnemyKill(isBoss, e.bossType);
         enemies.splice(j,1);
       }
       break;
@@ -646,6 +648,7 @@ function startGame(fromDebug = false) {
     ? diff.fixedLives
     : Math.max(1, 3 + permLv('extraLife') + diff.lifeBonus);
   applyPlayerHitRadius();
+  Achievements.resetRun();
   specialGauge=0; specialCooldownUntil=0; upgradePoints=0; _lastScoreThreshold=0; lastWasBossKill=false;
   if (!fromDebug) Object.keys(upgradeLevels).forEach(k => upgradeLevels[k]=0);
   currentWaveUpgrades = []; rerollsLeft = 2; shieldRechargeTimer = 0; shopPurchasedIds = new Set();
@@ -704,6 +707,8 @@ function endGame() {
     highscoresByDiff[playDifficultyId] = score;
   }
   saveHighscore();
+  recordWeeklyScore(score, playDifficultyId);
+  Achievements.onGameOver();
   const earned = Math.max(1, Math.min(20, Math.round(Math.floor(score / 1500) * getPlayDifficulty().ptMult)));
   recordHardWaveProgress();
   permPoints += earned;

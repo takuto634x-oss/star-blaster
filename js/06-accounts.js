@@ -13,8 +13,10 @@ const PROFILES_REGISTRY_KEY = 'starblaster_profiles_v1';
 const ACTIVE_PROFILE_KEY = 'starblaster_active_profile_v1';
 const HIGHSCORE_STORAGE_KEY = 'starblaster_highscore_v1';
 const HIGHSCORES_STORAGE_KEY = 'starblaster_highscores_v1';
+const WEEKLY_HIGHSCORES_STORAGE_KEY = 'starblaster_weekly_highscores_v1';
 const DIFFICULTY_HS_IDS = ['easy', 'normal', 'hard', 'extra'];
 let highscoresByDiff = { easy: 0, normal: 0, hard: 0, extra: 0 };
+let weeklyRecord = { weekKey: '', scores: { easy: 0, normal: 0, hard: 0, extra: 0 } };
 
 function emptyHighscores() {
   return { easy: 0, normal: 0, hard: 0, extra: 0 };
@@ -62,6 +64,66 @@ function readStoredHighscores(profileId) {
   if (raw) return parseHighscoresJson(raw);
   const legacy = localStorage.getItem(profileKeyFor(profileId, HIGHSCORE_STORAGE_KEY));
   return mergeLegacyHighscore(emptyHighscores(), legacy);
+}
+
+/** 週の開始日（月曜）をキーにする */
+function getWeekKey(d = new Date()) {
+  const copy = new Date(d);
+  copy.setHours(0, 0, 0, 0);
+  const day = copy.getDay();
+  copy.setDate(copy.getDate() + (day === 0 ? -6 : 1 - day));
+  const y = copy.getFullYear();
+  const m = String(copy.getMonth() + 1).padStart(2, '0');
+  const dd = String(copy.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
+function formatWeekRangeLabel(d = new Date()) {
+  const copy = new Date(d);
+  copy.setHours(0, 0, 0, 0);
+  const day = copy.getDay();
+  copy.setDate(copy.getDate() + (day === 0 ? -6 : 1 - day));
+  const mon = new Date(copy);
+  const sun = new Date(copy);
+  sun.setDate(mon.getDate() + 6);
+  const fmt = (dt) => `${dt.getMonth() + 1}/${dt.getDate()}`;
+  return `${fmt(mon)}〜${fmt(sun)}`;
+}
+
+function emptyWeeklyRecord() {
+  return { weekKey: getWeekKey(), scores: emptyHighscores() };
+}
+
+function parseWeeklyRecord(raw) {
+  if (!raw) return emptyWeeklyRecord();
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!parsed || typeof parsed !== 'object') return emptyWeeklyRecord();
+    return {
+      weekKey: parsed.weekKey || '',
+      scores: normalizeHighscores(parsed.scores),
+    };
+  } catch (e) {
+    return emptyWeeklyRecord();
+  }
+}
+
+function ensureCurrentWeeklyRecord(record) {
+  const wk = getWeekKey();
+  if (record.weekKey !== wk) return { weekKey: wk, scores: emptyHighscores() };
+  return { weekKey: wk, scores: normalizeHighscores(record.scores) };
+}
+
+function readStoredWeeklyRecord(profileId) {
+  const raw = localStorage.getItem(profileKeyFor(profileId, WEEKLY_HIGHSCORES_STORAGE_KEY));
+  return ensureCurrentWeeklyRecord(parseWeeklyRecord(raw));
+}
+
+function readProfileWeeklyHighscores(profileId) {
+  if (CloudSync.isEnabled() && cloudAccountSummary[profileId]) {
+    return ensureCurrentWeeklyRecord(parseWeeklyRecord(cloudAccountSummary[profileId].weeklyRaw)).scores;
+  }
+  return readStoredWeeklyRecord(profileId).scores;
 }
 
 const MAX_PROFILES = 60;
@@ -139,6 +201,7 @@ const CloudSync = (() => {
       cloudAccountSummary[doc.id] = {
         hss: highscoresFromCloudData(data),
         pts: (data.perm && data.perm.pts) || 0,
+        weeklyRaw: (data.flags && data.flags[WEEKLY_HIGHSCORES_STORAGE_KEY]) || null,
       };
       cloudAccountSummary[doc.id].hs = highscoresMax(cloudAccountSummary[doc.id].hss);
     });
@@ -372,15 +435,60 @@ function readProfileSummary(profileId) {
 
 // ===== HIGHSCORES & RANKING =====
 let leaderboardDiffId = 'normal';
-function buildAccountLeaderboard(diffId = leaderboardDiffId) {
+let leaderboardMode = 'all'; // 'all' | 'weekly'
+
+function loadWeeklyHighscores() {
+  if (CloudSync.isEnabled() && activeProfileId) {
+    weeklyRecord = ensureCurrentWeeklyRecord(parseWeeklyRecord(CloudSync.getFlag(WEEKLY_HIGHSCORES_STORAGE_KEY)));
+  } else if (activeProfileId) {
+    weeklyRecord = readStoredWeeklyRecord(activeProfileId);
+  } else {
+    weeklyRecord = emptyWeeklyRecord();
+  }
+}
+
+function saveWeeklyHighscores() {
+  if (!activeProfileId || debugMode) return;
+  weeklyRecord = ensureCurrentWeeklyRecord(weeklyRecord);
+  const payload = JSON.stringify(weeklyRecord);
+  profileSet(WEEKLY_HIGHSCORES_STORAGE_KEY, payload);
+}
+
+function recordWeeklyScore(runScore, diffId) {
+  if (debugMode || !activeProfileId) return;
+  weeklyRecord = ensureCurrentWeeklyRecord(weeklyRecord);
+  const prev = weeklyRecord.scores[diffId] || 0;
+  if (runScore > prev) {
+    weeklyRecord.scores[diffId] = runScore;
+    saveWeeklyHighscores();
+    if (CloudSync.isEnabled() && cloudAccountSummary[activeProfileId]) {
+      cloudAccountSummary[activeProfileId].weeklyRaw = JSON.stringify(weeklyRecord);
+    }
+  }
+}
+
+function buildAccountLeaderboard(diffId = leaderboardDiffId, mode = leaderboardMode) {
   if (!CloudSync.isEnabled()) loadProfilesRegistry();
   return profilesRegistry.profiles
     .map(p => {
       const { pts, hss } = readProfileSummary(p.id);
-      const hs = hss[diffId] || 0;
+      const weeklyHss = readProfileWeeklyHighscores(p.id);
+      const hs = mode === 'weekly' ? (weeklyHss[diffId] || 0) : (hss[diffId] || 0);
       return { id: p.id, name: p.name, pts, hs };
     })
     .sort((a, b) => b.hs - a.hs || a.name.localeCompare(b.name, 'ja'));
+}
+
+function updateLeaderboardModeTabs() {
+  document.querySelectorAll('.leaderboard-mode-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.lbMode === leaderboardMode);
+  });
+  const sub = document.getElementById('leaderboardSub');
+  if (sub) {
+    sub.textContent = leaderboardMode === 'weekly'
+      ? `今週（${formatWeekRangeLabel()}）のベスト · 難易度ごと · 月曜リセット`
+      : '共有ゲームアカウント別ハイスコア（難易度ごと）';
+  }
 }
 
 function updateLeaderboardDiffTabs() {
@@ -397,11 +505,20 @@ function setLeaderboardDifficulty(diffId) {
   Sfx.play('ui', true);
 }
 
+function setLeaderboardMode(mode) {
+  if (mode !== 'all' && mode !== 'weekly') return;
+  leaderboardMode = mode;
+  updateLeaderboardModeTabs();
+  renderLeaderboard();
+  Sfx.play('ui', true);
+}
+
 function renderLeaderboard() {
   const list = document.getElementById('leaderboardList');
   if (!list) return;
   const diffLabel = DIFFICULTIES[leaderboardDiffId]?.label || leaderboardDiffId.toUpperCase();
-  const rows = buildAccountLeaderboard(leaderboardDiffId);
+  const modeLabel = leaderboardMode === 'weekly' ? '週間' : '通算';
+  const rows = buildAccountLeaderboard(leaderboardDiffId, leaderboardMode);
   if (rows.length === 0) {
     list.innerHTML = '<div class="leaderboard-empty">アカウントがありません<br>先にアカウントを作成してください</div>';
     return;
@@ -411,14 +528,15 @@ function renderLeaderboard() {
     const rankClass = rank <= 3 ? ` rank-${rank}` : '';
     const activeClass = row.id === activeProfileId ? ' active' : '';
     const rankLabel = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : String(rank);
+    const scoreText = row.hs > 0 ? row.hs.toLocaleString() : '—';
     return `
       <div class="leaderboard-row${rankClass}${activeClass}">
         <div class="leaderboard-rank">${rankLabel}</div>
         <div>
           <div class="leaderboard-name">${escapeHtml(row.name)}</div>
-          <div class="leaderboard-meta">${diffLabel} · PT ${row.pts}${row.id === activeProfileId ? ' · 使用中' : ''}</div>
+          <div class="leaderboard-meta">${modeLabel} · ${diffLabel} · PT ${row.pts}${row.id === activeProfileId ? ' · 使用中' : ''}</div>
         </div>
-        <div class="leaderboard-score">${row.hs.toLocaleString()}</div>
+        <div class="leaderboard-score">${scoreText}</div>
       </div>`;
   }).join('');
 }
@@ -426,6 +544,8 @@ function renderLeaderboard() {
 async function openLeaderboard() {
   if (state !== 'title') return;
   if (CloudSync.isEnabled()) await CloudSync.refreshAccountList();
+  loadWeeklyHighscores();
+  updateLeaderboardModeTabs();
   updateLeaderboardDiffTabs();
   renderLeaderboard();
   ScreenUI.open('leaderboard');
@@ -491,6 +611,7 @@ function loadAllHighscores() {
 
 function loadHighscore() {
   loadAllHighscores();
+  loadWeeklyHighscores();
 }
 
 function saveHighscore() {
@@ -546,7 +667,10 @@ function recordHardWaveProgress() {
   if (playDifficultyId !== 'hard' || debugMode || !activeProfileId) return;
   const prev = parseInt(profileGet(HARD_MAX_WAVE_KEY) || '0', 10) || 0;
   if (level > prev) profileSet(HARD_MAX_WAVE_KEY, String(level));
-  if (level >= EXTRA_UNLOCK_WAVE) profileSet(EXTRA_UNLOCK_KEY, '1');
+  if (level >= EXTRA_UNLOCK_WAVE) {
+    profileSet(EXTRA_UNLOCK_KEY, '1');
+    Achievements.onExtraUnlocked();
+  }
 }
 
 function loadDifficulty() {
@@ -598,7 +722,10 @@ function updateDifficultyUI() {
     }
     const hs = highscoresByDiff[difficultyId] || 0;
     const hsText = hs > 0 ? ` · 自己ベスト ${hs.toLocaleString()}` : '';
-    descEl.textContent = getDifficulty().desc + hsText;
+    const wk = ensureCurrentWeeklyRecord(weeklyRecord);
+    const wHs = wk.scores[difficultyId] || 0;
+    const wText = wHs > 0 ? ` · 週間 ${wHs.toLocaleString()}` : '';
+    descEl.textContent = getDifficulty().desc + hsText + wText;
   }
 }
 
@@ -609,6 +736,7 @@ function openDifficultySelect(returnTo = 'title') {
   }
   difficultyReturnTo = returnTo;
   loadDifficulty();
+  loadWeeklyHighscores();
   loadAllHighscores();
   updateDifficultyUI();
   ScreenUI.dismissHint(false);
@@ -692,6 +820,7 @@ async function activateProfile(profileId) {
     loadHighscore();
   }
   loadDifficulty();
+  Achievements.load();
   updateTitleProfileUI();
   return true;
 }
@@ -984,6 +1113,9 @@ function initProfiles() {
   });
   document.querySelectorAll('.leaderboard-diff-tab').forEach(btn => {
     btn.addEventListener('click', () => setLeaderboardDifficulty(btn.dataset.lbDiff));
+  });
+  document.querySelectorAll('.leaderboard-mode-tab').forEach(btn => {
+    btn.addEventListener('click', () => setLeaderboardMode(btn.dataset.lbMode));
   });
 }
 
