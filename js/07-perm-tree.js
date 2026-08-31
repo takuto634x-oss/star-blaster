@@ -816,8 +816,7 @@ function returnToTitleFromPermTree() {
   document.getElementById('overlayHighscore').classList.add('hidden');
   document.getElementById('startBtn').textContent = 'スタート';
   state = 'title';
-  resetTouchStick();
-  touchInput.fire = false;
+  resetTouchInput();
   updateTouchControlsVisibility();
 }
 

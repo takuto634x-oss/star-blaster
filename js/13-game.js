@@ -678,8 +678,7 @@ function startGame(fromDebug = false) {
   permArmorUsed = 0;
   shieldRechargeTimer = getEffectiveShieldRechargeInterval() || 0;
   updateLivesUI(); updateGaugeUI();
-  resetTouchStick();
-  touchInput.fire = false;
+  resetTouchInput();
   updateTouchControlsVisibility();
   spawnWave(); showLevelText();
   if (!fromDebug) Sfx.play('start', true);
@@ -688,8 +687,7 @@ function startGame(fromDebug = false) {
 function endGame() {
   state='gameover';
   Sfx.play('gameOver', true);
-  resetTouchStick();
-  touchInput.fire = false;
+  resetTouchInput();
   updateTouchControlsVisibility();
   ScreenUI.close('upgrade');
   if (debugMode) {

@@ -287,7 +287,7 @@ function activateSpecial() {
   if (specialGauge < max || isGaugeBlocked()) return;
   const wasFull = specialGauge >= max;
   specialGauge = 0;
-  specialCooldownUntil = performance.now() + getPermSpecialCooldownMs();
+  specialCooldownUntil = performance.now() + getEffectiveSpecialCooldownMs();
   updateGaugeUI();
   const count = getSpecialCount();
   const dmg   = Math.floor(getSpecialDamage() * (wasFull ? getPermOverchargeMult() : 1));

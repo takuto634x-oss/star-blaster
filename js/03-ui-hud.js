@@ -44,6 +44,9 @@ function getSpecialCooldownSec() {
   if (!isGaugeBlocked()) return 0;
   return Math.ceil((specialCooldownUntil - performance.now()) / 1000);
 }
+function getEffectiveSpecialCooldownMs() {
+  return getPermSpecialCooldownMs() / Math.max(1, gameSpeed);
+}
 
 function addGauge(v) {
   if (isGaugeBlocked()) return;

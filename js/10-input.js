@@ -2,9 +2,16 @@
 const keys = {};
 const touchInput = { dx: 0, dy: 0, fire: false };
 const touchStick = { active: false, pointerId: null, originX: 0, originY: 0 };
+const touchFirePointers = new Set();
+let touchControlsInited = false;
 
 function isTouchDevice() {
   return window.matchMedia('(hover: none) and (pointer: coarse)').matches || 'ontouchstart' in window;
+}
+
+function isTouchControlTarget(node) {
+  if (!node || !node.closest) return false;
+  return !!node.closest('#touchControls, button, .btn, input, textarea, select, label, a, [id$="Overlay"], #overlay, #contextHint');
 }
 
 function updateTouchControlsVisibility() {
@@ -21,6 +28,13 @@ function resetTouchStick() {
   touchInput.dy = 0;
   const knob = document.getElementById('touchStickKnob');
   if (knob) knob.style.transform = 'translate(-50%, -50%)';
+}
+
+function resetTouchInput() {
+  resetTouchStick();
+  touchFirePointers.clear();
+  touchInput.fire = false;
+  document.querySelectorAll('.touch-btn.pressed').forEach(btn => btn.classList.remove('pressed'));
 }
 
 function getTouchStickMaxR() {
@@ -42,14 +56,29 @@ function updateTouchStick(clientX, clientY) {
   touchInput.dy = dy / maxR;
 }
 
+function releasePointer(btn, e) {
+  try { btn.releasePointerCapture(e.pointerId); } catch (_) {}
+  btn.classList.remove('pressed');
+}
+
+function setTouchFire(pointerId, on) {
+  if (on) touchFirePointers.add(pointerId);
+  else touchFirePointers.delete(pointerId);
+  touchInput.fire = touchFirePointers.size > 0;
+}
+
 function initTouchControls() {
+  if (touchControlsInited) return;
   const area = document.getElementById('touchStickArea');
   const fireBtn = document.getElementById('touchFire');
   const specialBtn = document.getElementById('touchSpecial');
   if (!area || !fireBtn || !specialBtn) return;
+  touchControlsInited = true;
 
   area.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
     e.preventDefault();
+    e.stopPropagation();
     area.setPointerCapture(e.pointerId);
     touchStick.active = true;
     touchStick.pointerId = e.pointerId;
@@ -57,38 +86,80 @@ function initTouchControls() {
     touchStick.originX = rect.left + rect.width / 2;
     touchStick.originY = rect.top + rect.height / 2;
     updateTouchStick(e.clientX, e.clientY);
-  });
+  }, { passive: false });
+
   area.addEventListener('pointermove', e => {
     if (!touchStick.active || e.pointerId !== touchStick.pointerId) return;
     e.preventDefault();
     updateTouchStick(e.clientX, e.clientY);
-  });
-  area.addEventListener('pointerup', e => {
-    if (e.pointerId !== touchStick.pointerId) return;
-    resetTouchStick();
-  });
-  area.addEventListener('pointercancel', e => {
-    if (e.pointerId !== touchStick.pointerId) return;
-    resetTouchStick();
-  });
+  }, { passive: false });
 
-  const bindHold = (btn, on, off) => {
-    btn.addEventListener('pointerdown', e => {
-      e.preventDefault();
-      btn.setPointerCapture(e.pointerId);
-      on();
-    });
-    btn.addEventListener('pointerup', off);
-    btn.addEventListener('pointercancel', off);
-    btn.addEventListener('pointerleave', e => {
-      if (!btn.hasPointerCapture(e.pointerId)) off();
-    });
+  const endStick = e => {
+    if (e.pointerId !== touchStick.pointerId) return;
+    try { area.releasePointerCapture(e.pointerId); } catch (_) {}
+    resetTouchStick();
   };
-  bindHold(fireBtn, () => { touchInput.fire = true; }, () => { touchInput.fire = false; });
-  specialBtn.addEventListener('pointerdown', e => {
+  area.addEventListener('pointerup', endStick);
+  area.addEventListener('pointercancel', endStick);
+  area.addEventListener('lostpointercapture', endStick);
+
+  fireBtn.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
     e.preventDefault();
+    e.stopPropagation();
+    fireBtn.setPointerCapture(e.pointerId);
+    fireBtn.classList.add('pressed');
+    setTouchFire(e.pointerId, true);
+  }, { passive: false });
+
+  const endFire = e => {
+    if (!touchFirePointers.has(e.pointerId)) return;
+    setTouchFire(e.pointerId, false);
+    releasePointer(fireBtn, e);
+  };
+  fireBtn.addEventListener('pointerup', endFire);
+  fireBtn.addEventListener('pointercancel', endFire);
+  fireBtn.addEventListener('lostpointercapture', endFire);
+
+  let specialTapId = null;
+  specialBtn.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    specialBtn.setPointerCapture(e.pointerId);
+    specialBtn.classList.add('pressed');
+    specialTapId = e.pointerId;
+  }, { passive: false });
+
+  const endSpecial = e => {
+    if (specialTapId !== e.pointerId) return;
+    specialTapId = null;
+    releasePointer(specialBtn, e);
     if (state === 'playing') activateSpecial();
+  };
+  specialBtn.addEventListener('pointerup', endSpecial);
+  specialBtn.addEventListener('pointercancel', endSpecial);
+  specialBtn.addEventListener('lostpointercapture', () => {
+    specialTapId = null;
+    specialBtn.classList.remove('pressed');
   });
+}
+
+const MOBILE_BTN_SEL = 'button, .btn, .speed-btn, .upg-buy, .upg-reroll-btn, .upg-continue, .forbidden-buy, .sound-btn, .lite-btn';
+
+function clearMobilePressed() {
+  document.querySelectorAll('.touch-pressed').forEach(btn => btn.classList.remove('touch-pressed'));
+}
+
+function initMobileButtons() {
+  if (initMobileButtons._done) return;
+  initMobileButtons._done = true;
+  document.addEventListener('pointerdown', e => {
+    const btn = e.target.closest?.(MOBILE_BTN_SEL);
+    if (btn && !btn.disabled) btn.classList.add('touch-pressed');
+  }, { passive: true });
+  document.addEventListener('pointerup', clearMobilePressed, { passive: true });
+  document.addEventListener('pointercancel', clearMobilePressed, { passive: true });
 }
 
 function layoutMobileViewport() {
@@ -114,7 +185,9 @@ function onMobileLayoutChange() {
 
 function initMobile() {
   document.body.addEventListener('touchmove', (e) => {
-    if (state === 'playing' && isTouchDevice()) e.preventDefault();
+    if (state !== 'playing' || !isTouchDevice()) return;
+    if (isTouchControlTarget(e.target)) return;
+    e.preventDefault();
   }, { passive: false });
 
   window.addEventListener('resize', onMobileLayoutChange);
@@ -126,6 +199,13 @@ function initMobile() {
     setSpeed(1);
     layoutMobileViewport();
   }
+
+  const releaseOnBackground = () => {
+    if (document.hidden || !document.hasFocus()) resetTouchInput();
+    clearMobilePressed();
+  };
+  document.addEventListener('visibilitychange', releaseOnBackground);
+  window.addEventListener('blur', releaseOnBackground);
 }
 
 document.addEventListener('keydown', e => {
@@ -142,9 +222,11 @@ document.addEventListener('keydown', e => {
   }
 });
 document.addEventListener('keyup', e => { keys[e.code] = false; });
-document.addEventListener('contextmenu', e => { if (state === 'playing') e.preventDefault(); });
+document.addEventListener('contextmenu', e => {
+  if (state === 'playing' || isTouchControlTarget(e.target)) e.preventDefault();
+});
 document.getElementById('startBtn').addEventListener('click', () => { Sfx.unlock(); openDifficultySelect('title'); });
 initTouchControls();
+initMobileButtons();
 initMobile();
 window.addEventListener('resize', updateTouchControlsVisibility);
-

@@ -144,7 +144,7 @@
     .overlay-sub { font-size: 13px; letter-spacing: 4px; color: rgba(100,180,255,0.7); margin-bottom: 40px; text-transform: uppercase; }
     .overlay-score { font-size: 18px; color: #fff; letter-spacing: 2px; margin-bottom: 12px; }
     .overlay-highscore { font-size: 13px; color: rgba(255,200,50,0.8); letter-spacing: 2px; margin-bottom: 48px; }
-    .btn { padding: 14px 48px; font-size: 16px; font-family: 'Courier New', monospace; letter-spacing: 3px; font-weight: bold; background: linear-gradient(135deg,rgba(0,150,255,0.25),rgba(0,80,200,0.25)); border: 1px solid rgba(0,180,255,0.6); color: #00ccff; cursor: pointer; transition: all 0.2s; text-transform: uppercase; position: relative; overflow: hidden; }
+    .btn { padding: 14px 48px; font-size: 16px; font-family: 'Courier New', monospace; letter-spacing: 3px; font-weight: bold; background: linear-gradient(135deg,rgba(0,150,255,0.25),rgba(0,80,200,0.25)); border: 1px solid rgba(0,180,255,0.6); color: #00ccff; cursor: pointer; transition: all 0.2s; text-transform: uppercase; position: relative; overflow: hidden; touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; }
     .btn::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg,transparent,rgba(0,200,255,0.15),transparent); transition: left 0.3s; }
     .btn:hover::before { left: 100%; }
     .btn:hover { background: linear-gradient(135deg,rgba(0,180,255,0.35),rgba(0,100,220,0.35)); box-shadow: 0 0 20px rgba(0,180,255,0.4); color: #fff; }
@@ -591,6 +591,7 @@
       font-weight: bold; letter-spacing: 0.5px;
       background: rgba(0,80,180,0.3); border: 1px solid rgba(0,160,255,0.5);
       color: #00ccff; cursor: pointer; border-radius: 3px; transition: all 0.15s;
+      touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none;
     }
     .upg-buy:hover:not(:disabled) { background: rgba(0,130,255,0.4); box-shadow: 0 0 8px rgba(0,180,255,0.35); color: #fff; }
     .upg-buy:disabled { opacity: 0.28; cursor: default; }
@@ -937,7 +938,7 @@
     /* ===== TOUCH CONTROLS ===== */
     #touchControls {
       position: absolute; bottom: 0; left: 0; right: 0;
-      height: 42%; pointer-events: none; z-index: 12;
+      height: 42%; pointer-events: none; z-index: 15;
       display: flex; justify-content: space-between; align-items: flex-end;
       padding: 0 10px calc(12px + env(safe-area-inset-bottom, 0px)) 10px;
     }
@@ -966,11 +967,17 @@
       gap: 10px; pointer-events: auto; padding-bottom: 4px;
     }
     .touch-btn {
-      touch-action: none; cursor: pointer;
+      touch-action: manipulation; cursor: pointer;
+      -webkit-tap-highlight-color: transparent; user-select: none;
       font-family: 'Courier New', monospace; font-weight: bold;
       letter-spacing: 1px; display: flex; align-items: center; justify-content: center;
     }
+    .touch-btn.pressed, .touch-btn.touch-pressed,
+    button.touch-pressed, .btn.touch-pressed {
+      filter: brightness(1.25); transform: scale(0.96);
+    }
     .touch-btn:active { filter: brightness(1.3); transform: scale(0.95); }
+    .touch-btn.fire, .touch-btn.special { touch-action: none; }
     .touch-btn.fire {
       width: 68px; height: 68px; border-radius: 50%;
       font-size: 11px;
@@ -1016,12 +1023,13 @@
       .gauge-hint { font-size: 9px; letter-spacing: 0; }
       #bossHealth { width: 55%; bottom: auto; top: calc(72px + env(safe-area-inset-top, 0px)); }
       #powerupIndicator { bottom: 44%; right: 10px; max-width: 38%; font-size: 10px; }
-      #touchControls { height: 46%; }
+      #touchControls { height: 46%; z-index: 15; }
       #touchStickArea { width: 128px; height: 128px; }
       #touchStickKnob { width: 50px; height: 50px; }
-      .touch-btn.fire { width: 76px; height: 76px; font-size: 12px; }
-      .touch-btn.special { width: 58px; height: 58px; font-size: 11px; }
-      #touchButtons { gap: 12px; padding-bottom: 6px; }
+      .touch-btn.fire { width: 80px; height: 80px; font-size: 12px; }
+      .touch-btn.special { width: 62px; height: 62px; font-size: 11px; }
+      #touchButtons { gap: 12px; padding-bottom: max(6px, env(safe-area-inset-bottom, 0px)); }
+      #speedUI { display: none; }
       .overlay-title { font-size: 32px; letter-spacing: 3px; margin-top: 8px; }
       .overlay-sub { font-size: 11px; margin-bottom: 20px; }
       .btn { padding: 14px 28px; font-size: 14px; width: min(280px, 88vw); max-width: 100%; }

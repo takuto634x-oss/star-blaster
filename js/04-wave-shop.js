@@ -575,8 +575,7 @@ function continueToNextWave() {
   ScreenUI.dismissHint(true);
   ScreenUI.close('upgrade');
   state = 'playing';
-  resetTouchStick();
-  touchInput.fire = false;
+  resetTouchInput();
   updateTouchControlsVisibility();
   permArmorUsed = 0;
   applyWaveStartBonuses();
